@@ -12,10 +12,15 @@ struct Sprite {
     float z;
     float width;
     float height;
+
     float texture_x;
     float texture_y;
     float texture_width;
     float texture_height;
+
+    float r;
+    float g;
+    float b;
 };
 
 // Define a list of sprites, type names passed to LIST_DEFINE can't have spaces.

@@ -178,8 +178,10 @@ struct Grid {
     size_t width;
     size_t height;
     size_t size;
+
     int32_t cursor_x;
     int32_t cursor_y;
+    bool show_cursor;
 };
 
 struct Grid grid_create(size_t width, size_t height) {
@@ -246,7 +248,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
         for (size_t title_length = 0; title_length < 255; title_length++) {
             size_t peek_i = *i + title_length;
             bool has_bel = data_match_char(data, L'\x7', &peek_i);
-            bool has_terminator = has_bel || (data_match_char(data, L'\x1b', &peek_i) && data_match_char(data, L'\x5c', &peek_i));
+            bool has_terminator =
+                has_bel || (data_match_char(data, L'\x1b', &peek_i) && data_match_char(data, L'\x5c', &peek_i));
             if (!has_terminator) {
                 continue;
             }
@@ -255,7 +258,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             char *title = malloc(title_string_length);
             wcstombs_s(NULL, title, title_string_length, data->text + *i, title_length);
 
-            glfwSetWindowTitle(window->glfw_window, (char*)title);
+            glfwSetWindowTitle(window->glfw_window, (char *)title);
 
             free(title);
 
@@ -266,6 +269,24 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
     // Control sequence introducers:
     if (data_match_char(data, L'[', i)) {
+        // Cursor visibility:
+        if (data_match_char(data, L'?', i)) {
+            if (data_match_char(data, L'2', i) && data_match_char(data, L'5', i)) {
+                if (data_match_char(data, L'h', i)) {
+                    grid->show_cursor = true;
+                    return true;
+                }
+
+                if (data_match_char(data, L'l', i)) {
+                    grid->show_cursor = false;
+                    return true;
+                }
+            }
+
+            *i = start_i;
+            return false;
+        }
+
         // TODO: Make sure when parsing sequences that they don't have more numbers supplied then they allow, ie: no
         // ESC[10;5A because A should only accept one number.
         size_t parsed_number_count = 0;
@@ -365,7 +386,10 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
     return false;
 }
 
-void draw_character(struct SpriteBatch *sprite_batch, wchar_t character, int32_t x, int32_t y, int32_t origin_y) {
+void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y,
+    float r, float g, float b) {
+
+    wchar_t character = grid->data[x + y * grid->width];
     if (character < 33 || character > 126) {
         return;
     }
@@ -373,12 +397,38 @@ void draw_character(struct SpriteBatch *sprite_batch, wchar_t character, int32_t
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * 6,
                                        .y = origin_y - (y + 1) * 14,
+                                       .z = z,
                                        .width = 6,
                                        .height = 14,
+
                                        .texture_x = 8 * (character - 32),
                                        .texture_width = 6,
                                        .texture_height = 14,
+
+                                       .r = r,
+                                       .g = g,
+                                       .b = b,
                                    });
+}
+
+void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
+    sprite_batch_add(sprite_batch, (struct Sprite){
+                                       .x = x * 6,
+                                       .y = origin_y - (y + 1) * 14,
+                                       .z = z,
+                                       .width = 6,
+                                       .height = 14,
+
+                                       .texture_x = 0,
+                                       .texture_width = 6,
+                                       .texture_height = 14,
+
+                                       .r = 1.0f,
+                                       .g = 1.0f,
+                                       .b = 1.0f,
+                                   });
+
+    grid_draw_character(grid, sprite_batch, x, y, z + 1, origin_y, 0.0f, 0.0f, 0.0f);
 }
 
 int main() {
@@ -453,6 +503,11 @@ int main() {
                 data.textLength = dwRead + 1;
 
                 for (size_t i = 0; i < data.textLength;) {
+                    if (data.text[i] == '\0') {
+                        i++;
+                        continue;
+                    }
+
                     // Check for escape sequences.
                     // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n> is
                     // omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they are
@@ -478,9 +533,12 @@ int main() {
 
         for (size_t y = 0; y < grid_height; y++) {
             for (size_t x = 0; x < grid_width; x++) {
-                size_t i = x + y * grid_width;
-                draw_character(&sprite_batch, grid.data[i], x, y, window.height);
+                grid_draw_character(&grid, &sprite_batch, x, y, 0, window.height, 1.0f, 1.0f, 1.0f);
             }
+        }
+
+        if (grid.show_cursor) {
+            grid_draw_cursor(&grid, &sprite_batch, grid.cursor_x, grid.cursor_y, 1, window.height);
         }
 
         // END HANDLE TERMINAL

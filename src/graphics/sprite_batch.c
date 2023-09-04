@@ -64,9 +64,9 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
             list_push_float(&sprite_batch->vertices, vertex_z);
 
             // Color:
-            list_push_float(&sprite_batch->vertices, 1.0f);
-            list_push_float(&sprite_batch->vertices, 1.0f);
-            list_push_float(&sprite_batch->vertices, 1.0f);
+            list_push_float(&sprite_batch->vertices, sprite->r);
+            list_push_float(&sprite_batch->vertices, sprite->g);
+            list_push_float(&sprite_batch->vertices, sprite->b);
 
             // UV:
             float u = sprite->texture_x + SPRITE_TEXTURE_PADDING +
