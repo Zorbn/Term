@@ -227,13 +227,44 @@ void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
 }
 
 // Returns true if an escape sequence was parsed.
-bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i) {
+bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct Window *window) {
     size_t start_i = *i;
     if (!data_match_char(data, L'\x1b', i)) {
         *i = start_i;
         return false;
     }
 
+    // Operating system commands:
+    if (data_match_char(data, L']', i)) {
+        bool has_zero_or_two = data_match_char(data, L'0', i) || data_match_char(data, L'2', i);
+        if (!has_zero_or_two || !data_match_char(data, L';', i)) {
+            *i = start_i;
+            return false;
+        }
+
+        // Window titles can be at most 255 characters.
+        for (size_t title_length = 0; title_length < 255; title_length++) {
+            size_t peek_i = *i + title_length;
+            bool has_bel = data_match_char(data, L'\x7', &peek_i);
+            bool has_terminator = has_bel || (data_match_char(data, L'\x1b', &peek_i) && data_match_char(data, L'\x5c', &peek_i));
+            if (!has_terminator) {
+                continue;
+            }
+
+            size_t title_string_length = title_length + 1;
+            char *title = malloc(title_string_length);
+            wcstombs_s(NULL, title, title_string_length, data->text + *i, title_length);
+
+            glfwSetWindowTitle(window->glfw_window, (char*)title);
+
+            free(title);
+
+            *i = peek_i;
+            return true;
+        }
+    }
+
+    // Control sequence introducers:
     if (data_match_char(data, L'[', i)) {
         // TODO: Make sure when parsing sequences that they don't have more numbers supplied then they allow, ie: no
         // ESC[10;5A because A should only accept one number.
@@ -426,7 +457,7 @@ int main() {
                     // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n> is
                     // omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they are
                     // assumed to be 1.
-                    if (grid_parse_escape_sequence(&grid, &data, &i)) {
+                    if (grid_parse_escape_sequence(&grid, &data, &i, &window)) {
                         continue;
                     }
 
