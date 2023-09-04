@@ -17,6 +17,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#define READ_BUFFER_SIZE 4096
+
 const float sky_color_r = 50.0f / 255.0f;
 const float sky_color_g = 74.0f / 255.0f;
 const float sky_color_b = 117.0f / 255.0f;
@@ -135,7 +137,8 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
     PrepareStartupInformation(hPC, &siEx);
 
     // PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
-    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"python test.py\"";
+    // PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"python test.py\"";
+    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"nvim --clean\"";
     // PCWSTR childApplication = L"python test.py";
 
     // Create mutable text string for CreateProcessW command line string.
@@ -181,6 +184,10 @@ struct Grid {
 
     int32_t cursor_x;
     int32_t cursor_y;
+
+    int32_t saved_cursor_x;
+    int32_t saved_cursor_y;
+
     bool show_cursor;
 };
 
@@ -214,6 +221,16 @@ void grid_scroll_down(struct Grid *grid) {
     }
 
     grid->cursor_y--;
+}
+
+void grid_cursor_save(struct Grid *grid) {
+    grid->saved_cursor_x = grid->cursor_x;
+    grid->saved_cursor_y = grid->cursor_y;
+}
+
+void grid_cursor_restore(struct Grid *grid) {
+    grid->cursor_x = grid->saved_cursor_x;
+    grid->cursor_y = grid->saved_cursor_y;
 }
 
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y, bool can_scroll) {
@@ -259,6 +276,17 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
     if (!data_match_char(data, L'\x1b', i)) {
         *i = start_i;
         return false;
+    }
+
+    // Simple cursor positioning:
+    if (data_match_char(data, L'7', i)) {
+        grid_cursor_save(grid);
+        return true;
+    }
+
+    if (data_match_char(data, L'8', i)) {
+        grid_cursor_restore(grid);
+        return true;
     }
 
     // Operating system commands:
@@ -314,24 +342,27 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
         // TODO: Make sure when parsing sequences that they don't have more numbers supplied then they allow, ie: no
         // ESC[10;5A because A should only accept one number.
+        // The maximum amount of numbers supported is 16, for the "m" commands (text formatting).
+        int32_t parsed_numbers[16] = {0};
         size_t parsed_number_count = 0;
-        int32_t number1 = 0;
-        int32_t number2 = 0;
 
-        // TODO: Make this into a function.
-        while (data_peek_digit(data, *i)) {
-            parsed_number_count = 1;
-            int32_t digit = data->text[*i] - L'0';
-            number1 = number1 * 10 + digit;
-            *i += 1;
-        }
-
-        if (data_match_char(data, L';', i)) {
+        for (size_t parsed_number_i = 0; parsed_number_i < 16; parsed_number_i++) {
+            bool did_parse_number = false;
             while (data_peek_digit(data, *i)) {
-                parsed_number_count = 2;
+                did_parse_number = true;
                 int32_t digit = data->text[*i] - L'0';
-                number2 = number2 * 10 + digit;
+                parsed_numbers[parsed_number_i] = parsed_numbers[parsed_number_i] * 10 + digit;
                 *i += 1;
+            }
+
+            if (did_parse_number) {
+                parsed_number_count++;
+            } else {
+                break;
+            }
+
+            if (!data_match_char(data, L';', i)) {
+                break;
             }
         }
 
@@ -345,8 +376,20 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
         // Cursor positioning:
         {
+            if (parsed_number_count == 0) {
+                if (data_match_char(data, L's', i)) {
+                    grid_cursor_save(grid);
+                    return true;
+                }
+
+                if (data_match_char(data, L'u', i)) {
+                    grid_cursor_restore(grid);
+                    return true;
+                }
+            }
+
             if (parsed_number_count < 2) {
-                int32_t n = parsed_number_count > 0 ? number1 : 1;
+                int32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 1;
 
                 // Up:
                 if (data_match_char(data, L'A', i)) {
@@ -371,10 +414,26 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                     grid_cursor_move(grid, n, 0, false);
                     return true;
                 }
+
+                // Horizontal absolute:
+                if (data_match_char(data, L'G', i)) {
+                    if (n > 0) {
+                        grid_cursor_move_to(grid, n - 1, grid->cursor_y, false);
+                    }
+                    return true;
+                }
+
+                // Vertical absolute:
+                if (data_match_char(data, L'd', i)) {
+                    if (n > 0) {
+                        grid_cursor_move_to(grid, grid->cursor_x, n - 1, false);
+                    }
+                    return true;
+                }
             }
 
-            int32_t x = parsed_number_count > 0 ? number1 : 1;
-            int32_t y = parsed_number_count > 1 ? number2 : 1;
+            int32_t x = parsed_number_count > 0 ? parsed_numbers[0] : 1;
+            int32_t y = parsed_number_count > 1 ? parsed_numbers[1] : 1;
 
             // Cursor position or horizontal vertical position:
             if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
@@ -387,12 +446,37 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
         // Text modification:
         {
-            int32_t n = parsed_number_count > 0 ? number1 : 0;
+            int32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 0;
+
+            if (data_match_char(data, L'X', i)) {
+                int32_t erase_count = grid->size - (grid->cursor_x + grid->cursor_y * grid->width);
+                if (n < erase_count) {
+                    erase_count = n;
+                }
+
+                for (size_t erase_i = 0; erase_i < erase_count; erase_i++) {
+                    grid->data[erase_i] = L' ';
+                }
+
+                return true;
+            }
 
             switch (n) {
+                case 0: {
+                    // Erase line after cursor.
+                    if (data_match_char(data, L'K', i)) {
+                        for (size_t x = grid->cursor_x; x < grid->width; x++) {
+                            grid->data[x + grid->cursor_y * grid->width] = L' ';
+                        }
+
+                        return true;
+                    }
+
+                    break;
+                }
                 case 2: {
                     if (data_match_char(data, L'J', i)) {
-                        // Earase entire display.
+                        // Erase entire display.
                         for (size_t y = 0; y < grid->height; y++) {
                             for (size_t x = 0; x < grid->width; x++) {
                                 grid->data[x + y * grid->width] = L' ';
@@ -515,20 +599,19 @@ int main() {
 
         // START HANDLE TERMINAL
 
-        DWORD bytesAvailable;
-        CHAR chBuf[1024];
-        PeekNamedPipe(console.output, NULL, 0, NULL, &bytesAvailable, NULL);
+        DWORD bytes_available;
+        CHAR read_buffer[READ_BUFFER_SIZE];
+        PeekNamedPipe(console.output, NULL, 0, NULL, &bytes_available, NULL);
 
-        if (bytesAvailable > 0) {
-            int32_t bytesToRead = 1024;
+        if (bytes_available > 0) {
             DWORD dwRead;
-            BOOL success = ReadFile(console.output, chBuf, bytesToRead, &dwRead, NULL);
+            BOOL success = ReadFile(console.output, read_buffer, READ_BUFFER_SIZE, &dwRead, NULL);
             if (success && dwRead != 0) {
                 data_destroy(&data);
                 data.text = (wchar_t *)malloc((dwRead + 1) * sizeof(wchar_t));
                 assert(data.text);
                 size_t out;
-                mbstowcs_s(&out, data.text, dwRead + 1, chBuf, dwRead);
+                mbstowcs_s(&out, data.text, dwRead + 1, read_buffer, dwRead);
                 data.textLength = dwRead;
 
                 for (size_t i = 0; i < data.textLength;) {
