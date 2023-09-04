@@ -1,0 +1,17 @@
+Problem:
+    In an infinite world structures may be generated the occupy multiple chunks, including some that are not yet loaded.
+
+Possible solution:
+    Each structure must have a bounding box (AABB).
+    Chunks should have the ability (ie: a function) to generate the part of a structure that fits inside of them.
+    The world will abstract this functionality.
+
+    Then:
+        When the world generator decides a structure (ie: a tree) needs to be generated it will:
+            Tell the world where the structure is,
+            The world will loop over all chunks in the bounds of the structure,
+            If the chunk exists then tell it to generate it's section of the structure,
+            If the chunk doesn't exist add the structure to a list that stores the location of chunks and their pending structures.
+            When a new chunk is created check if it is responsible for any of the structures in the list of pending structures, if so they can now be generated.
+
+            When saving the world this list of pending structures would be saved too.
