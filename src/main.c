@@ -351,8 +351,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             int32_t x = parsed_number_count > 0 ? number1 : 1;
             int32_t y = parsed_number_count > 1 ? number2 : 1;
 
-            // Forward:
-            if (data_match_char(data, L'H', i)) {
+            // Cursor position or horizontal vertical position:
+            if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
                 grid_cursor_move_to(grid, x - 1, y - 1);
                 return true;
             }
