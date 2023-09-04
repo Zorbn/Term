@@ -135,8 +135,8 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
     PrepareStartupInformation(hPC, &siEx);
 
     // PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
-    // PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe";
-    PCWSTR childApplication = L"python test.py";
+    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"python test.py\"";
+    // PCWSTR childApplication = L"python test.py";
 
     // Create mutable text string for CreateProcessW command line string.
     const size_t charsRequired = wcslen(childApplication) + 1; // +1 null terminator
@@ -190,6 +190,7 @@ struct Grid grid_create(size_t width, size_t height) {
         .data = malloc(grid_width * grid_height * sizeof(wchar_t)),
         .width = width,
         .height = height,
+        .size = size,
     };
     assert(grid.data);
 
@@ -202,6 +203,19 @@ struct Grid grid_create(size_t width, size_t height) {
 
 void grid_destroy(struct Grid *grid) {
     free(grid->data);
+}
+
+void grid_scroll_down(struct Grid *grid, int32_t distance) {
+    // TODO: Handle multiple distances.
+
+    memmove(&grid->data[0], &grid->data[grid->width], (grid->size - grid->width) * sizeof(wchar_t));
+
+    size_t new_row_start_i = (grid->height - 1) * grid->width;
+    for (size_t i = 0; i < grid->width; i++) {
+        grid->data[i + new_row_start_i] = L' ';
+    }
+
+    grid->cursor_y--;
 }
 
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
@@ -221,7 +235,14 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
         grid->cursor_y++;
     }
 
+    if (grid->cursor_y < 0) {
+        grid->cursor_y = 0;
+    }
+
     // TODO: Handle scrolling.
+    while (grid->cursor_y >= grid->height) {
+        grid_scroll_down(grid, 1);
+    }
 }
 
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
@@ -353,7 +374,9 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
             // Cursor position or horizontal vertical position:
             if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
-                grid_cursor_move_to(grid, x - 1, y - 1);
+                if (x > 0 && y > 0) {
+                    grid_cursor_move_to(grid, x - 1, y - 1);
+                }
                 return true;
             }
         }
@@ -386,8 +409,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
     return false;
 }
 
-void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y,
-    float r, float g, float b) {
+void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
+    int32_t origin_y, float r, float g, float b) {
 
     wchar_t character = grid->data[x + y * grid->width];
     if (character < 33 || character > 126) {
@@ -411,7 +434,8 @@ void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, in
                                    });
 }
 
-void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
+void grid_draw_cursor(
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * 6,
                                        .y = origin_y - (y + 1) * 14,
@@ -455,9 +479,6 @@ int main() {
     printf("Console result: %ld\n", console.result);
     struct Grid grid = grid_create(grid_width, grid_height);
 
-    DWORD bytesAvailable;
-    CHAR chBuf[1024];
-
     double last_frame_time = glfwGetTime();
     float fps_print_timer = 0.0f;
 
@@ -490,36 +511,37 @@ int main() {
 
         // START HANDLE TERMINAL
 
+        DWORD bytesAvailable;
+        CHAR chBuf[1024];
         PeekNamedPipe(console.output, NULL, 0, NULL, &bytesAvailable, NULL);
+
         if (bytesAvailable > 0) {
             int32_t bytesToRead = 1024;
             DWORD dwRead;
             BOOL success = ReadFile(console.output, chBuf, bytesToRead, &dwRead, NULL);
             if (success && dwRead != 0) {
+                data_destroy(&data);
                 data.text = (wchar_t *)malloc((dwRead + 1) * sizeof(wchar_t));
                 assert(data.text);
                 size_t out;
                 mbstowcs_s(&out, data.text, dwRead + 1, chBuf, dwRead);
-                data.textLength = dwRead + 1;
+                data.textLength = dwRead;
 
                 for (size_t i = 0; i < data.textLength;) {
-                    if (data.text[i] == '\0') {
-                        i++;
-                        continue;
-                    }
-
                     // Check for escape sequences.
-                    // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n> is
-                    // omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they are
-                    // assumed to be 1.
+                    // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n>
+                    // is omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they
+                    // are assumed to be 1.
                     if (grid_parse_escape_sequence(&grid, &data, &i, &window)) {
                         continue;
                     }
 
-                    if (data.text[i] == L'\n') {
-                        grid.cursor_x = 0;
-                        grid.cursor_y++;
-                        i++;
+                    if (data_match_char(&data, L'\r', &i)) {
+                        continue;
+                    }
+
+                    if (data_match_char(&data, L'\n', &i)) {
+                        grid_cursor_move_to(&grid, 0, grid.cursor_y + 1);
                         continue;
                     }
 
