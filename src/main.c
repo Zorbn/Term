@@ -154,6 +154,55 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
 	};
 }
 
+struct Grid {
+    wchar_t *data;
+    size_t width;
+    size_t height;
+    size_t size;
+    int32_t cursor_x;
+    int32_t cursor_y;
+};
+
+struct Grid grid_create(size_t width, size_t height) {
+    size_t size = width * height;
+    struct Grid grid = (struct Grid){
+        .data = malloc(grid_width * grid_height * sizeof(wchar_t)),
+        .width = width,
+        .height = height,
+    };
+    assert(grid.data);
+
+    for (size_t i = 0; i < size; i++) {
+        grid.data[i] = L' ';
+    }
+
+    return grid;
+}
+
+void grid_destroy(struct Grid *grid) {
+    free(grid->data);
+}
+
+void grid_move_cursor(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
+    grid->cursor_x += delta_x;
+
+    if (grid->cursor_x < 0) {
+        // TODO: Is this right, or should it loop around?
+        grid->cursor_x = 0;
+    }
+
+    // TODO: This is a hack, we are tying the visible cursor position and the actual cursor position together.
+    // That will cause problems when implementing resizing, scrollback, etc. Maybe replace this with proper line wrap later.
+    while (grid->cursor_x >= grid->width) {
+        grid->cursor_x -= grid->width;
+        grid->cursor_y++;
+    }
+
+    grid->cursor_y += delta_y;
+
+    // TODO: Handle scrolling.
+}
+
 void draw_character(struct SpriteBatch *sprite_batch, wchar_t character, int32_t x, int32_t y, int32_t origin_y) {
     if (character < 33 || character > 126) {
         return;
@@ -192,12 +241,7 @@ int main() {
     data.textLength = 0;
     PseudoConsole console = SetUpPseudoConsole((COORD){grid_width, grid_height});
     printf("Console result: %ld\n", console.result);
-    int32_t cursor_x = 0;
-    int32_t cursor_y = 0;
-    wchar_t *grid = malloc(grid_width * grid_height * sizeof(wchar_t));
-    for (size_t i = 0; i < grid_width * grid_height; i++) {
-        grid[i] = L' ';
-    }
+    struct Grid grid = grid_create(grid_width, grid_height);
 
     DWORD bytesAvailable;
     CHAR chBuf[1024];
@@ -274,7 +318,7 @@ int main() {
                             if (data.text[i] == L'C') {
                                 i++;
                                 // TODO: Move by the parsed number.
-                                cursor_x += 1;
+                                grid_move_cursor(&grid, 1, 0);
                                 continue;
                             }
                         }
@@ -284,17 +328,12 @@ int main() {
                     }
 
                     if (data.text[i] == L'\n') {
-                        cursor_x = 0;
-                        cursor_y++;
+                        grid.cursor_x = 0;
+                        grid.cursor_y++;
                     }
 
-                    while (cursor_x >= grid_width) {
-                        cursor_x -= grid_width;
-                        cursor_y++;
-                    }
-
-                    grid[cursor_x + cursor_y * grid_width] = data.text[i];
-                    cursor_x++;
+                    grid.data[grid.cursor_x + grid.cursor_y * grid_width] = data.text[i];
+                    grid_move_cursor(&grid, 1, 0);
 
                     i++;
                 }
@@ -304,7 +343,7 @@ int main() {
         for (size_t y = 0; y < grid_height; y++) {
             for (size_t x = 0; x < grid_width; x++) {
                 size_t i = x + y * grid_width;
-                draw_character(&sprite_batch, grid[i], x, y, window.height);
+                draw_character(&sprite_batch, grid.data[i], x, y, window.height);
             }
         }
 
@@ -326,6 +365,8 @@ int main() {
         glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
+
+    grid_destroy(&grid);
 
     sprite_batch_destroy(&sprite_batch);
 

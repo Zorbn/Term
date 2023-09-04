@@ -37,8 +37,6 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
 
     struct Window window = {
         .glfw_window = glfw_window,
-        .is_mouse_locked = false,
-        .is_mouse_up_to_date = false,
         .input = input_create(),
     };
     glfwSetWindowUserPointer(glfw_window, (void *)&window);
@@ -56,44 +54,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     return window;
 }
 
-void window_update_mouse_lock(struct Window *window) {
-    if (!window->is_mouse_locked && glfwGetMouseButton(window->glfw_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        glfwSetInputMode(window->glfw_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        window->is_mouse_locked = true;
-        window->is_mouse_up_to_date = false;
-    } else if (window->is_mouse_locked && glfwGetKey(window->glfw_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetInputMode(window->glfw_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        window->is_mouse_locked = false;
-    }
-}
-
-void window_get_mouse_delta(struct Window *window, float *delta_x, float *delta_y) {
-    if (!window->is_mouse_locked) {
-        *delta_x = 0.0f;
-        *delta_y = 0.0f;
-        return;
-    }
-
-    double mouse_x, mouse_y;
-    glfwGetCursorPos(window->glfw_window, &mouse_x, &mouse_y);
-
-    if (!window->is_mouse_up_to_date) {
-        window->last_mouse_x = mouse_x;
-        window->last_mouse_y = mouse_y;
-        window->is_mouse_up_to_date = true;
-        *delta_x = 0.0f;
-        *delta_y = 0.0f;
-        return;
-    }
-
-    *delta_x = (float)(mouse_x - window->last_mouse_x);
-    *delta_y = (float)(mouse_y - window->last_mouse_y);
-    window->last_mouse_x = mouse_x;
-    window->last_mouse_y = mouse_y;
-}
-
 void window_update(struct Window *window) {
-    window_update_mouse_lock(window);
     input_update(&window->input);
 }
 
