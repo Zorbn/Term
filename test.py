@@ -3,6 +3,8 @@
 
 import time
 
+print("a\x1b[1500Ca")
+
 i = 0
 while True:
     print(i)

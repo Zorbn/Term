@@ -205,9 +205,7 @@ void grid_destroy(struct Grid *grid) {
     free(grid->data);
 }
 
-void grid_scroll_down(struct Grid *grid, int32_t distance) {
-    // TODO: Handle multiple distances.
-
+void grid_scroll_down(struct Grid *grid) {
     memmove(&grid->data[0], &grid->data[grid->width], (grid->size - grid->width) * sizeof(wchar_t));
 
     size_t new_row_start_i = (grid->height - 1) * grid->width;
@@ -218,35 +216,41 @@ void grid_scroll_down(struct Grid *grid, int32_t distance) {
     grid->cursor_y--;
 }
 
-void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
+void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y, bool can_scroll) {
     grid->cursor_x = x;
     grid->cursor_y = y;
 
     if (grid->cursor_x < 0) {
-        // TODO: Is this right, or should it loop around?
         grid->cursor_x = 0;
-    }
-
-    // TODO: This is a hack, we are tying the visible cursor position and the actual cursor position together.
-    // That will cause problems when implementing resizing, scrollback, etc. Maybe replace this with proper line wrap
-    // later.
-    while (grid->cursor_x >= grid->width) {
-        grid->cursor_x -= grid->width;
-        grid->cursor_y++;
     }
 
     if (grid->cursor_y < 0) {
         grid->cursor_y = 0;
     }
 
-    // TODO: Handle scrolling.
+    // TODO: This is a hack, we are tying the visible cursor position and the actual cursor position together.
+    // That will cause problems when implementing resizing, scrollback, etc. Maybe replace this with proper line wrap
+    // later.
+    while (grid->cursor_x >= grid->width) {
+        if (can_scroll) {
+            grid->cursor_x -= grid->width;
+            grid->cursor_y++;
+        } else {
+            grid->cursor_x = grid->width - 1;
+        }
+    }
+
     while (grid->cursor_y >= grid->height) {
-        grid_scroll_down(grid, 1);
+        if (can_scroll) {
+            grid_scroll_down(grid);
+        } else {
+            grid->cursor_y = grid->height - 1;
+        }
     }
 }
 
-void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
-    grid_cursor_move_to(grid, grid->cursor_x + delta_x, grid->cursor_y + delta_y);
+void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y, bool can_scroll) {
+    grid_cursor_move_to(grid, grid->cursor_x + delta_x, grid->cursor_y + delta_y, can_scroll);
 }
 
 // Returns true if an escape sequence was parsed.
@@ -346,25 +350,25 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
                 // Up:
                 if (data_match_char(data, L'A', i)) {
-                    grid_cursor_move(grid, 0, -n);
+                    grid_cursor_move(grid, 0, -n, false);
                     return true;
                 }
 
                 // Down:
                 if (data_match_char(data, L'B', i)) {
-                    grid_cursor_move(grid, 0, n);
+                    grid_cursor_move(grid, 0, n, false);
                     return true;
                 }
 
                 // Backward:
                 if (data_match_char(data, L'D', i)) {
-                    grid_cursor_move(grid, -n, 0);
+                    grid_cursor_move(grid, -n, 0, false);
                     return true;
                 }
 
                 // Forward:
                 if (data_match_char(data, L'C', i)) {
-                    grid_cursor_move(grid, n, 0);
+                    grid_cursor_move(grid, n, 0, false);
                     return true;
                 }
             }
@@ -375,7 +379,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             // Cursor position or horizontal vertical position:
             if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
                 if (x > 0 && y > 0) {
-                    grid_cursor_move_to(grid, x - 1, y - 1);
+                    grid_cursor_move_to(grid, x - 1, y - 1, false);
                 }
                 return true;
             }
@@ -537,16 +541,16 @@ int main() {
                     }
 
                     if (data_match_char(&data, L'\r', &i)) {
+                        grid_cursor_move_to(&grid, 0, grid.cursor_y + 1, true);
                         continue;
                     }
 
                     if (data_match_char(&data, L'\n', &i)) {
-                        grid_cursor_move_to(&grid, 0, grid.cursor_y + 1);
                         continue;
                     }
 
                     grid.data[grid.cursor_x + grid.cursor_y * grid_width] = data.text[i];
-                    grid_cursor_move(&grid, 1, 0);
+                    grid_cursor_move(&grid, 1, 0, true);
 
                     i++;
                 }
