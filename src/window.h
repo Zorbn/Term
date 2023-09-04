@@ -17,6 +17,8 @@ struct Window {
     int32_t height;
     bool was_resized;
     struct Input input;
+    // TODO: Move to input struct:
+    struct List_uint32_t typed_chars;
 };
 
 struct Window window_create(char *title, int32_t width, int32_t height);

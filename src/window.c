@@ -20,6 +20,11 @@ void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t acti
     input_update_button(&window->input, button, action);
 }
 
+void character_callback(GLFWwindow *glfw_window, uint32_t codepoint) {
+    struct Window *window = glfwGetWindowUserPointer(glfw_window);
+    list_push_uint32_t(&window->typed_chars, codepoint);
+}
+
 struct Window window_create(char *title, int32_t width, int32_t height) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -38,6 +43,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     struct Window window = {
         .glfw_window = glfw_window,
         .input = input_create(),
+        .typed_chars = list_create_uint32_t(16),
     };
     glfwSetWindowUserPointer(glfw_window, (void *)&window);
 
@@ -50,16 +56,19 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     framebuffer_size_callback(glfw_window, width, height);
     glfwSetKeyCallback(glfw_window, key_callback);
     glfwSetMouseButtonCallback(glfw_window, mouse_button_callback);
+    glfwSetCharCallback(glfw_window, character_callback);
 
     return window;
 }
 
 void window_update(struct Window *window) {
     input_update(&window->input);
+    list_reset_uint32_t(&window->typed_chars);
 }
 
 void window_destroy(struct Window *window) {
     input_destroy(&window->input);
+    list_destroy_uint32_t(&window->typed_chars);
 
     glfwTerminate();
 }

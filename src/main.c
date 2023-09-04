@@ -137,8 +137,8 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
     PrepareStartupInformation(hPC, &siEx);
 
     // PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
-    // PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"python test.py\"";
-    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"nvim --clean\"";
+    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe";
+    // PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"nvim --clean\"";
     // PCWSTR childApplication = L"python test.py";
 
     // Create mutable text string for CreateProcessW command line string.
@@ -223,6 +223,14 @@ void grid_scroll_down(struct Grid *grid) {
     grid->cursor_y--;
 }
 
+void grid_char_set(struct Grid *grid, int32_t x, int32_t y, wchar_t character) {
+    if (x < 0 || y < 0 || x >= grid->width || y >= grid->height) {
+        return;
+    }
+
+    grid->data[x + y * grid->width] = character;
+}
+
 void grid_cursor_save(struct Grid *grid) {
     grid->saved_cursor_x = grid->cursor_x;
     grid->saved_cursor_y = grid->cursor_y;
@@ -249,12 +257,12 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y, bool can_scrol
     // That will cause problems when implementing resizing, scrollback, etc. Maybe replace this with proper line wrap
     // later.
     while (grid->cursor_x >= grid->width) {
-        if (can_scroll) {
-            grid->cursor_x -= grid->width;
-            grid->cursor_y++;
-        } else {
+        // if (can_scroll) {
+        //     grid->cursor_x -= grid->width;
+        //     grid->cursor_y++;
+        // } else {
             grid->cursor_x = grid->width - 1;
-        }
+        // }
     }
 
     while (grid->cursor_y >= grid->height) {
@@ -286,6 +294,12 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
     if (data_match_char(data, L'8', i)) {
         grid_cursor_restore(grid);
+        return true;
+    }
+
+    if (data_match_char(data, L'H', i)) {
+        // TODO:
+        puts("set tab stop");
         return true;
     }
 
@@ -322,23 +336,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
     // Control sequence introducers:
     if (data_match_char(data, L'[', i)) {
-        // Cursor visibility:
-        if (data_match_char(data, L'?', i)) {
-            if (data_match_char(data, L'2', i) && data_match_char(data, L'5', i)) {
-                if (data_match_char(data, L'h', i)) {
-                    grid->show_cursor = true;
-                    return true;
-                }
-
-                if (data_match_char(data, L'l', i)) {
-                    grid->show_cursor = false;
-                    return true;
-                }
-            }
-
-            *i = start_i;
-            return false;
-        }
+        bool starts_with_question_mark = data_match_char(data, L'?', i);
 
         // TODO: Make sure when parsing sequences that they don't have more numbers supplied then they allow, ie: no
         // ESC[10;5A because A should only accept one number.
@@ -364,6 +362,41 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             if (!data_match_char(data, L';', i)) {
                 break;
             }
+        }
+
+        // Cursor visibility:
+        if (starts_with_question_mark) {
+            // Unrecognized numbers here are just ignored, since they are sometimes
+            // sent by programs trying to change the mouse mode or other things that we don't support.
+            bool should_show_hide_cursor = parsed_number_count == 1 && parsed_numbers[0] == 25;
+
+            if (data_match_char(data, L'h', i)) {
+                if (should_show_hide_cursor) {
+                    grid->show_cursor = true;
+                }
+                return true;
+            }
+
+            if (data_match_char(data, L'l', i)) {
+                if (should_show_hide_cursor) {
+                    grid->show_cursor = false;
+                }
+                return true;
+            }
+
+            *i = start_i;
+            return false;
+        }
+
+        // Cursor shape:
+        if (data_match_char(data, L' ', i)) {
+            if (data_match_char(data, L'q', i)) {
+                // TODO: Change cursor shape.
+                return true;
+            }
+
+            *i = start_i;
+            return false;
         }
 
         // Text formatting:
@@ -432,8 +465,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                 }
             }
 
-            int32_t x = parsed_number_count > 0 ? parsed_numbers[0] : 1;
-            int32_t y = parsed_number_count > 1 ? parsed_numbers[1] : 1;
+            int32_t y = parsed_number_count > 0 ? parsed_numbers[0] : 1;
+            int32_t x = parsed_number_count > 1 ? parsed_numbers[1] : 1;
 
             // Cursor position or horizontal vertical position:
             if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
@@ -449,13 +482,14 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             int32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 0;
 
             if (data_match_char(data, L'X', i)) {
-                int32_t erase_count = grid->size - (grid->cursor_x + grid->cursor_y * grid->width);
+                int32_t erase_start = grid->cursor_x + grid->cursor_y * grid->width;
+                int32_t erase_count = grid->size - erase_start;
                 if (n < erase_count) {
                     erase_count = n;
                 }
 
                 for (size_t erase_i = 0; erase_i < erase_count; erase_i++) {
-                    grid->data[erase_i] = L' ';
+                    grid->data[erase_start + erase_i] = L' ';
                 }
 
                 return true;
@@ -466,7 +500,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                     // Erase line after cursor.
                     if (data_match_char(data, L'K', i)) {
                         for (size_t x = grid->cursor_x; x < grid->width; x++) {
-                            grid->data[x + grid->cursor_y * grid->width] = L' ';
+                            grid_char_set(grid, x, grid->cursor_y, L' ');
                         }
 
                         return true;
@@ -479,7 +513,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                         // Erase entire display.
                         for (size_t y = 0; y < grid->height; y++) {
                             for (size_t x = 0; x < grid->width; x++) {
-                                grid->data[x + y * grid->width] = L' ';
+                                grid_char_set(grid, x, y, L' ');
                             }
                         }
 
@@ -598,6 +632,30 @@ int main() {
         sprite_batch_begin(&sprite_batch);
 
         // START HANDLE TERMINAL
+        for (size_t i = 0; i < window.typed_chars.length; i++) {
+            CHAR write_buffer[1];
+            write_buffer[0] = (CHAR)window.typed_chars.data[i];
+            WriteFile(console.input, write_buffer, 1, NULL, NULL);
+        }
+
+        // TODO: Simplify this logic and support more keys, i'm just doing this for testing.
+        if (input_is_button_pressed(&window.input, GLFW_KEY_ENTER)) {
+            CHAR write_buffer[1];
+            write_buffer[0] = '\r';
+            WriteFile(console.input, write_buffer, 1, NULL, NULL);
+        }
+
+        if (input_is_button_pressed(&window.input, GLFW_KEY_ESCAPE)) {
+            CHAR write_buffer[1];
+            write_buffer[0] = '\x1b';
+            WriteFile(console.input, write_buffer, 1, NULL, NULL);
+        }
+
+        if (input_is_button_pressed(&window.input, GLFW_KEY_BACKSPACE)) {
+            CHAR write_buffer[1];
+            write_buffer[0] = '\x7f';
+            WriteFile(console.input, write_buffer, 1, NULL, NULL);
+        }
 
         DWORD bytes_available;
         CHAR read_buffer[READ_BUFFER_SIZE];
@@ -623,16 +681,23 @@ int main() {
                         continue;
                     }
 
+                    // Parse escape characters:
                     if (data_match_char(&data, L'\r', &i)) {
-                        grid_cursor_move_to(&grid, 0, grid.cursor_y + 1, true);
+                        grid_cursor_move_to(&grid, 0, grid.cursor_y, false);
                         continue;
                     }
 
                     if (data_match_char(&data, L'\n', &i)) {
+                        grid_cursor_move_to(&grid, grid.cursor_x, grid.cursor_y + 1, true);
                         continue;
                     }
 
-                    grid.data[grid.cursor_x + grid.cursor_y * grid_width] = data.text[i];
+                    if (data_match_char(&data, L'\b', &i)) {
+                        grid_cursor_move(&grid, -1, 0, false);
+                        continue;
+                    }
+
+                    grid_char_set(&grid, grid.cursor_x, grid.cursor_y, data.text[i]);
                     grid_cursor_move(&grid, 1, 0, true);
 
                     i++;
