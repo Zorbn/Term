@@ -219,8 +219,6 @@ void grid_scroll_down(struct Grid *grid) {
     for (size_t i = 0; i < grid->width; i++) {
         grid->data[i + new_row_start_i] = L' ';
     }
-
-    grid->cursor_y--;
 }
 
 void grid_char_set(struct Grid *grid, int32_t x, int32_t y, wchar_t character) {
@@ -241,7 +239,7 @@ void grid_cursor_restore(struct Grid *grid) {
     grid->cursor_y = grid->saved_cursor_y;
 }
 
-void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y, bool can_scroll) {
+void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
     grid->cursor_x = x;
     grid->cursor_y = y;
 
@@ -249,33 +247,17 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y, bool can_scrol
         grid->cursor_x = 0;
     }
 
-    if (grid->cursor_y < 0) {
-        grid->cursor_y = 0;
+    if (grid->cursor_x >= grid->width) {
+        grid->cursor_x = grid->width - 1;
     }
 
-    // TODO: This is a hack, we are tying the visible cursor position and the actual cursor position together.
-    // That will cause problems when implementing resizing, scrollback, etc. Maybe replace this with proper line wrap
-    // later.
-    while (grid->cursor_x >= grid->width) {
-        // if (can_scroll) {
-        //     grid->cursor_x -= grid->width;
-        //     grid->cursor_y++;
-        // } else {
-            grid->cursor_x = grid->width - 1;
-        // }
-    }
-
-    while (grid->cursor_y >= grid->height) {
-        if (can_scroll) {
-            grid_scroll_down(grid);
-        } else {
-            grid->cursor_y = grid->height - 1;
-        }
+    if (grid->cursor_y >= grid->height) {
+        grid->cursor_y = grid->height - 1;
     }
 }
 
-void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y, bool can_scroll) {
-    grid_cursor_move_to(grid, grid->cursor_x + delta_x, grid->cursor_y + delta_y, can_scroll);
+void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
+    grid_cursor_move_to(grid, grid->cursor_x + delta_x, grid->cursor_y + delta_y);
 }
 
 // Returns true if an escape sequence was parsed.
@@ -384,6 +366,10 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                 return true;
             }
 
+            if (data_match_char(data, L'u', i)) {
+                return true;
+            }
+
             *i = start_i;
             return false;
         }
@@ -426,32 +412,32 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
                 // Up:
                 if (data_match_char(data, L'A', i)) {
-                    grid_cursor_move(grid, 0, -n, false);
+                    grid_cursor_move(grid, 0, -n);
                     return true;
                 }
 
                 // Down:
                 if (data_match_char(data, L'B', i)) {
-                    grid_cursor_move(grid, 0, n, false);
+                    grid_cursor_move(grid, 0, n);
                     return true;
                 }
 
                 // Backward:
                 if (data_match_char(data, L'D', i)) {
-                    grid_cursor_move(grid, -n, 0, false);
+                    grid_cursor_move(grid, -n, 0);
                     return true;
                 }
 
                 // Forward:
                 if (data_match_char(data, L'C', i)) {
-                    grid_cursor_move(grid, n, 0, false);
+                    grid_cursor_move(grid, n, 0);
                     return true;
                 }
 
                 // Horizontal absolute:
                 if (data_match_char(data, L'G', i)) {
                     if (n > 0) {
-                        grid_cursor_move_to(grid, n - 1, grid->cursor_y, false);
+                        grid_cursor_move_to(grid, n - 1, grid->cursor_y);
                     }
                     return true;
                 }
@@ -459,7 +445,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                 // Vertical absolute:
                 if (data_match_char(data, L'd', i)) {
                     if (n > 0) {
-                        grid_cursor_move_to(grid, grid->cursor_x, n - 1, false);
+                        grid_cursor_move_to(grid, grid->cursor_x, n - 1);
                     }
                     return true;
                 }
@@ -471,7 +457,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             // Cursor position or horizontal vertical position:
             if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
                 if (x > 0 && y > 0) {
-                    grid_cursor_move_to(grid, x - 1, y - 1, false);
+                    grid_cursor_move_to(grid, x - 1, y - 1);
                 }
                 return true;
             }
@@ -657,6 +643,12 @@ int main() {
             WriteFile(console.input, write_buffer, 1, NULL, NULL);
         }
 
+        if (input_is_button_pressed(&window.input, GLFW_KEY_TAB)) {
+            CHAR write_buffer[1];
+            write_buffer[0] = '\t';
+            WriteFile(console.input, write_buffer, 1, NULL, NULL);
+        }
+
         DWORD bytes_available;
         CHAR read_buffer[READ_BUFFER_SIZE];
         PeekNamedPipe(console.output, NULL, 0, NULL, &bytes_available, NULL);
@@ -683,22 +675,30 @@ int main() {
 
                     // Parse escape characters:
                     if (data_match_char(&data, L'\r', &i)) {
-                        grid_cursor_move_to(&grid, 0, grid.cursor_y, false);
+                        grid_cursor_move_to(&grid, 0, grid.cursor_y);
                         continue;
                     }
 
                     if (data_match_char(&data, L'\n', &i)) {
-                        grid_cursor_move_to(&grid, grid.cursor_x, grid.cursor_y + 1, true);
+                        if (grid.cursor_y == grid.height - 1) {
+                            grid_scroll_down(&grid);
+                        } else {
+                            grid.cursor_y++;
+                        }
                         continue;
                     }
 
                     if (data_match_char(&data, L'\b', &i)) {
-                        grid_cursor_move(&grid, -1, 0, false);
+                        grid_cursor_move(&grid, -1, 0);
                         continue;
                     }
 
+                    if (grid.cursor_x >= grid.width) {
+                        grid.cursor_x = 0;
+                        grid.cursor_y++;
+                    }
                     grid_char_set(&grid, grid.cursor_x, grid.cursor_y, data.text[i]);
-                    grid_cursor_move(&grid, 1, 0, true);
+                    grid.cursor_x++;
 
                     i++;
                 }
