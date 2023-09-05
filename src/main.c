@@ -17,7 +17,23 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#define READ_BUFFER_SIZE 4096
+/*
+ * TODO:
+ * Support setting fg and bg colors, Micro uses this to draw the cursor.
+ * Support arrows, ctrl, alt, and repeating keys like backspace by holding them down.
+ * Unicode characters and box drawing characters aren't handled well,
+ * (ie: Helix breaks when it shows a unicode animation after opening a file, or when it does box drawing while typing a command).
+ */
+
+/*
+ * Missing features:
+ * Mouse input,
+ * Copy/paste,
+ * Scrollback,
+ */
+
+// TODO: Is this too big for the buffer? Is there a way to make it smaller while not splitting escape codes and failing to process them?
+#define READ_BUFFER_SIZE 8192
 
 const float sky_color_r = 50.0f / 255.0f;
 const float sky_color_g = 74.0f / 255.0f;
