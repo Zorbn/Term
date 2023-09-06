@@ -22,7 +22,8 @@
  * Support setting fg and bg colors, Micro uses this to draw the cursor.
  * Support arrows, ctrl, alt, and repeating keys like backspace by holding them down.
  * Unicode characters and box drawing characters aren't handled well,
- * (ie: Helix breaks when it shows a unicode animation after opening a file, or when it does box drawing while typing a command).
+ * (ie: Helix breaks when it shows a unicode animation after opening a file, or when it does box drawing while typing a
+ * command).
  */
 
 /*
@@ -32,18 +33,18 @@
  * Scrollback,
  */
 
-// TODO: Is this too big for the buffer? Is there a way to make it smaller while not splitting escape codes and failing to process them?
+// TODO: Is this too big for the buffer? Is there a way to make it smaller while not splitting escape codes and failing
+// to process them?
 #define READ_BUFFER_SIZE 8192
 
 const float sky_color_r = 50.0f / 255.0f;
 const float sky_color_g = 74.0f / 255.0f;
 const float sky_color_b = 117.0f / 255.0f;
 
-const int32_t grid_width = 80;
-const int32_t grid_height = 24;
-
 typedef struct {
     HRESULT result;
+    HPCON hpc;
+    HANDLE h_process;
     HANDLE output, input;
 } PseudoConsole;
 
@@ -128,6 +129,8 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
             HRESULT_FROM_WIN32(GetLastError()),
             NULL,
             NULL,
+            NULL,
+            NULL,
         };
     }
 
@@ -136,21 +139,25 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
             HRESULT_FROM_WIN32(GetLastError()),
             NULL,
             NULL,
+            NULL,
+            NULL,
         };
     }
 
-    HPCON hPC;
-    hr = CreatePseudoConsole(size, inputReadSide, outputWriteSide, 0, &hPC);
+    HPCON hpc;
+    hr = CreatePseudoConsole(size, inputReadSide, outputWriteSide, 0, &hpc);
     if (FAILED(hr)) {
         return (PseudoConsole){
             hr,
+            NULL,
+            NULL,
             NULL,
             NULL,
         };
     }
 
     STARTUPINFOEX siEx;
-    PrepareStartupInformation(hPC, &siEx);
+    PrepareStartupInformation(hpc, &siEx);
 
     // PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
     PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe";
@@ -164,6 +171,8 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
     if (!cmdLineMutable) {
         return (PseudoConsole){
             E_OUTOFMEMORY,
+            NULL,
+            NULL,
             NULL,
             NULL,
         };
@@ -182,11 +191,15 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
             HRESULT_FROM_WIN32(GetLastError()),
             NULL,
             NULL,
+            NULL,
+            NULL,
         };
     }
 
     return (PseudoConsole){
         hr,
+        hpc,
+        pi.hProcess,
         outputReadSide,
         inputWriteSide,
     };
@@ -210,7 +223,7 @@ struct Grid {
 struct Grid grid_create(size_t width, size_t height) {
     size_t size = width * height;
     struct Grid grid = (struct Grid){
-        .data = malloc(grid_width * grid_height * sizeof(wchar_t)),
+        .data = malloc(width * height * sizeof(wchar_t)),
         .width = width,
         .height = height,
         .size = size,
@@ -597,11 +610,18 @@ int main() {
     int32_t projection_matrix_location_2d = glGetUniformLocation(program_2d, "projection_matrix");
 
     Data data = {0};
-    data.text = NULL;
+    const size_t data_text_capacity = READ_BUFFER_SIZE + 1;
+    data.text = malloc(data_text_capacity * sizeof(wchar_t));
+    assert(data.text);
     data.textLength = 0;
+
+    const int32_t grid_width = window.width / 6;
+    const int32_t grid_height = window.height / 14;
     PseudoConsole console = SetUpPseudoConsole((COORD){grid_width, grid_height});
     printf("Console result: %ld\n", console.result);
     struct Grid grid = grid_create(grid_width, grid_height);
+
+    CHAR read_buffer[READ_BUFFER_SIZE];
 
     double last_frame_time = glfwGetTime();
     float fps_print_timer = 0.0f;
@@ -630,8 +650,6 @@ int main() {
 
         elapsed_time += delta_time;
         float time_of_day = 0.5f * (sin(elapsed_time * 0.1f) + 1.0f);
-
-        sprite_batch_begin(&sprite_batch);
 
         // START HANDLE TERMINAL
         for (size_t i = 0; i < window.typed_chars.length; i++) {
@@ -665,19 +683,20 @@ int main() {
             WriteFile(console.input, write_buffer, 1, NULL, NULL);
         }
 
+        // Exit when the process we're reading from exits.
+        if (WaitForSingleObject(console.h_process, 0) != WAIT_TIMEOUT) {
+            break;
+        }
+
         DWORD bytes_available;
-        CHAR read_buffer[READ_BUFFER_SIZE];
         PeekNamedPipe(console.output, NULL, 0, NULL, &bytes_available, NULL);
 
         if (bytes_available > 0) {
             DWORD dwRead;
-            BOOL success = ReadFile(console.output, read_buffer, READ_BUFFER_SIZE, &dwRead, NULL);
-            if (success && dwRead != 0) {
-                data_destroy(&data);
-                data.text = (wchar_t *)malloc((dwRead + 1) * sizeof(wchar_t));
-                assert(data.text);
+            BOOL did_read = ReadFile(console.output, read_buffer, READ_BUFFER_SIZE, &dwRead, NULL);
+            if (did_read && dwRead != 0) {
                 size_t out;
-                mbstowcs_s(&out, data.text, dwRead + 1, read_buffer, dwRead);
+                mbstowcs_s(&out, data.text, data_text_capacity, read_buffer, dwRead);
                 data.textLength = dwRead;
 
                 for (size_t i = 0; i < data.textLength;) {
@@ -721,8 +740,10 @@ int main() {
             }
         }
 
-        for (size_t y = 0; y < grid_height; y++) {
-            for (size_t x = 0; x < grid_width; x++) {
+        sprite_batch_begin(&sprite_batch);
+
+        for (size_t y = 0; y < grid.height; y++) {
+            for (size_t x = 0; x < grid.width; x++) {
                 grid_draw_character(&grid, &sprite_batch, x, y, 0, window.height, 1.0f, 1.0f, 1.0f);
             }
         }
@@ -731,9 +752,9 @@ int main() {
             grid_draw_cursor(&grid, &sprite_batch, grid.cursor_x, grid.cursor_y, 1, window.height);
         }
 
-        // END HANDLE TERMINAL
-
         sprite_batch_end(&sprite_batch, texture_atlas_2d.width, texture_atlas_2d.height);
+
+        // END HANDLE TERMINAL
 
         // Draw:
         glClearColor(sky_color_r * time_of_day, sky_color_g * time_of_day, sky_color_b * time_of_day, 1.0f);
@@ -749,6 +770,8 @@ int main() {
         glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
+
+    ClosePseudoConsole(console.hpc);
 
     grid_destroy(&grid);
     data_destroy(&data);
