@@ -22,6 +22,7 @@
  * Support setting fg and bg colors, Micro uses this to draw the cursor.
  * Support arrows, ctrl, alt, and repeating keys like backspace by holding them down.
  * Unicode characters and box drawing characters aren't handled well,
+ * Dynamic resizing.
  * (ie: Helix breaks when it shows a unicode animation after opening a file, or when it does box drawing while typing a
  * command).
  */

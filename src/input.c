@@ -9,19 +9,9 @@ struct Input input_create(void) {
 
 void input_update_button(struct Input *input, int32_t button, int32_t action) {
     switch (action) {
+        case GLFW_REPEAT:
         case GLFW_PRESS:
-            bool was_button_held = false;
-            for (size_t i = 0; i < input->held_buttons.length; i++) {
-                if (input->held_buttons.data[i] == button) {
-                    was_button_held = true;
-                    break;
-                }
-            }
-
-            if (!was_button_held) {
-                list_push_int32_t(&input->pressed_buttons, button);
-            }
-
+            list_push_int32_t(&input->pressed_buttons, button);
             list_push_int32_t(&input->held_buttons, button);
 
             break;
