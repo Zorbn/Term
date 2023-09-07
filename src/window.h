@@ -8,8 +8,11 @@
 #include <GLFW/glfw3.h>
 
 #include "input.h"
+#include "pseudo_console.h"
 
 #include <stdbool.h>
+
+LIST_DEFINE(uint8_t)
 
 struct Window {
     GLFWwindow *glfw_window;
@@ -18,7 +21,8 @@ struct Window {
     bool was_resized;
     struct Input input;
     // TODO: Move to input struct:
-    struct List_uint32_t typed_chars;
+    struct List_uint8_t typed_chars;
+    PseudoConsole console; // TODO: Is this going to stay here? If it is initialize it in window_create.
 };
 
 struct Window window_create(char *title, int32_t width, int32_t height);

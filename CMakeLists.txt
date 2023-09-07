@@ -13,6 +13,7 @@ set (
     src/file.c src/file.h
     src/input.c src/input.h
     src/window.c src/window.h
+    src/pseudo_console.c src/pseudo_console.h
     src/graphics/mesh.c src/graphics/mesh.h
     src/graphics/resources.c src/graphics/resources.h
     src/graphics/sprite_batch.c src/graphics/sprite_batch.h

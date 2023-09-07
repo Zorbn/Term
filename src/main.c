@@ -14,13 +14,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
 /*
  * TODO:
  * Support setting fg and bg colors, Micro uses this to draw the cursor.
- * Support arrows, ctrl, alt, and repeating keys like backspace by holding them down.
  * Unicode characters and box drawing characters aren't handled well,
  * Dynamic resizing.
  * (ie: Helix breaks when it shows a unicode animation after opening a file, or when it does box drawing while typing a
@@ -41,13 +37,6 @@
 const float sky_color_r = 50.0f / 255.0f;
 const float sky_color_g = 74.0f / 255.0f;
 const float sky_color_b = 117.0f / 255.0f;
-
-typedef struct {
-    HRESULT result;
-    HPCON hpc;
-    HANDLE h_process;
-    HANDLE output, input;
-} PseudoConsole;
 
 typedef struct {
     wchar_t *text;
@@ -78,132 +67,6 @@ bool data_peek_digit(Data *data, size_t i) {
 
 void data_destroy(Data *data) {
     free(data->text);
-}
-
-HRESULT PrepareStartupInformation(HPCON hpc, STARTUPINFOEX *psi) {
-    // Prepare Startup Information structure
-    STARTUPINFOEX si;
-    ZeroMemory(&si, sizeof(si));
-    si.StartupInfo.cb = sizeof(STARTUPINFOEX);
-
-    // Discover the size required for the list
-    size_t bytesRequired;
-    InitializeProcThreadAttributeList(NULL, 1, 0, &bytesRequired);
-
-    // Allocate memory to represent the list
-    si.lpAttributeList = (PPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, bytesRequired);
-    if (!si.lpAttributeList) {
-        return E_OUTOFMEMORY;
-    }
-
-    // Initialize the list memory location
-    if (!InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &bytesRequired)) {
-        HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    // Set the pseudoconsole information into the list
-    if (!UpdateProcThreadAttribute(
-            si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, hpc, sizeof(hpc), NULL, NULL)) {
-        HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    *psi = si;
-
-    return S_OK;
-}
-
-PseudoConsole SetUpPseudoConsole(COORD size) {
-    HRESULT hr = S_OK;
-
-    // - Close these after CreateProcess of child application with
-    // pseudoconsole object.
-    HANDLE inputReadSide, outputWriteSide;
-
-    // - Hold onto these and use them for communication with the child
-    // through the pseudoconsole.
-    HANDLE outputReadSide, inputWriteSide;
-
-    if (!CreatePipe(&inputReadSide, &inputWriteSide, NULL, 0)) {
-        return (PseudoConsole){
-            HRESULT_FROM_WIN32(GetLastError()),
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-        };
-    }
-
-    if (!CreatePipe(&outputReadSide, &outputWriteSide, NULL, 0)) {
-        return (PseudoConsole){
-            HRESULT_FROM_WIN32(GetLastError()),
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-        };
-    }
-
-    HPCON hpc;
-    hr = CreatePseudoConsole(size, inputReadSide, outputWriteSide, 0, &hpc);
-    if (FAILED(hr)) {
-        return (PseudoConsole){
-            hr,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-        };
-    }
-
-    STARTUPINFOEX siEx;
-    PrepareStartupInformation(hpc, &siEx);
-
-    // PCWSTR childApplication = L"C:\\windows\\system32\\cmd.exe";
-    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe";
-    // PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe -c \"nvim --clean\"";
-    // PCWSTR childApplication = L"python test.py";
-
-    // Create mutable text string for CreateProcessW command line string.
-    const size_t charsRequired = wcslen(childApplication) + 1; // +1 null terminator
-    PWSTR cmdLineMutable = (PWSTR)HeapAlloc(GetProcessHeap(), 0, sizeof(wchar_t) * charsRequired);
-
-    if (!cmdLineMutable) {
-        return (PseudoConsole){
-            E_OUTOFMEMORY,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-        };
-    }
-
-    wcscpy_s(cmdLineMutable, charsRequired, childApplication);
-
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&pi, sizeof(pi));
-
-    // Call CreateProcess
-    if (!CreateProcessW(NULL, cmdLineMutable, NULL, NULL, FALSE, EXTENDED_STARTUPINFO_PRESENT, NULL, NULL,
-            (LPSTARTUPINFOW)(&siEx.StartupInfo), &pi)) {
-        HeapFree(GetProcessHeap(), 0, cmdLineMutable);
-        return (PseudoConsole){
-            HRESULT_FROM_WIN32(GetLastError()),
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-        };
-    }
-
-    return (PseudoConsole){
-        hr,
-        hpc,
-        pi.hProcess,
-        outputReadSide,
-        inputWriteSide,
-    };
 }
 
 struct Grid {
@@ -618,8 +481,8 @@ int main() {
 
     const int32_t grid_width = window.width / 6;
     const int32_t grid_height = window.height / 14;
-    PseudoConsole console = SetUpPseudoConsole((COORD){grid_width, grid_height});
-    printf("Console result: %ld\n", console.result);
+    window.console = SetUpPseudoConsole((COORD){grid_width, grid_height});
+    printf("Console result: %ld\n", window.console.result);
     struct Grid grid = grid_create(grid_width, grid_height);
 
     CHAR read_buffer[READ_BUFFER_SIZE];
@@ -653,48 +516,20 @@ int main() {
         float time_of_day = 0.5f * (sin(elapsed_time * 0.1f) + 1.0f);
 
         // START HANDLE TERMINAL
-        for (size_t i = 0; i < window.typed_chars.length; i++) {
-            CHAR write_buffer[1];
-            write_buffer[0] = (CHAR)window.typed_chars.data[i];
-            WriteFile(console.input, write_buffer, 1, NULL, NULL);
-        }
-
-        // TODO: Simplify this logic and support more keys, i'm just doing this for testing.
-        if (input_is_button_pressed(&window.input, GLFW_KEY_ENTER)) {
-            CHAR write_buffer[1];
-            write_buffer[0] = '\r';
-            WriteFile(console.input, write_buffer, 1, NULL, NULL);
-        }
-
-        if (input_is_button_pressed(&window.input, GLFW_KEY_ESCAPE)) {
-            CHAR write_buffer[1];
-            write_buffer[0] = '\x1b';
-            WriteFile(console.input, write_buffer, 1, NULL, NULL);
-        }
-
-        if (input_is_button_pressed(&window.input, GLFW_KEY_BACKSPACE)) {
-            CHAR write_buffer[1];
-            write_buffer[0] = '\x7f';
-            WriteFile(console.input, write_buffer, 1, NULL, NULL);
-        }
-
-        if (input_is_button_pressed(&window.input, GLFW_KEY_TAB)) {
-            CHAR write_buffer[1];
-            write_buffer[0] = '\t';
-            WriteFile(console.input, write_buffer, 1, NULL, NULL);
-        }
+        CHAR *typed_chars = (CHAR*)window.typed_chars.data;
+        WriteFile(window.console.input, typed_chars, window.typed_chars.length, NULL, NULL);
 
         // Exit when the process we're reading from exits.
-        if (WaitForSingleObject(console.h_process, 0) != WAIT_TIMEOUT) {
+        if (WaitForSingleObject(window.console.h_process, 0) != WAIT_TIMEOUT) {
             break;
         }
 
         DWORD bytes_available;
-        PeekNamedPipe(console.output, NULL, 0, NULL, &bytes_available, NULL);
+        PeekNamedPipe(window.console.output, NULL, 0, NULL, &bytes_available, NULL);
 
         if (bytes_available > 0) {
             DWORD dwRead;
-            BOOL did_read = ReadFile(console.output, read_buffer, READ_BUFFER_SIZE, &dwRead, NULL);
+            BOOL did_read = ReadFile(window.console.output, read_buffer, READ_BUFFER_SIZE, &dwRead, NULL);
             if (did_read && dwRead != 0) {
                 size_t out;
                 mbstowcs_s(&out, data.text, data_text_capacity, read_buffer, dwRead);
@@ -772,7 +607,8 @@ int main() {
         glfwPollEvents();
     }
 
-    ClosePseudoConsole(console.hpc);
+    // TODO: Console should use a _create, _destroy convention.
+    ClosePseudoConsole(window.console.hpc);
 
     grid_destroy(&grid);
     data_destroy(&data);

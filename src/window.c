@@ -13,6 +13,61 @@ void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, int32_t h
 void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     input_update_button(&window->input, key, action);
+
+    if (action != GLFW_PRESS && action != GLFW_REPEAT) {
+        return;
+    }
+
+    uint8_t write_char = 0;
+    bool needs_write = true;
+
+    switch (key) {
+        case GLFW_KEY_ENTER:
+            write_char = '\r';
+            break;
+        case GLFW_KEY_ESCAPE:
+            write_char = '\x1b';
+            break;
+        case GLFW_KEY_BACKSPACE:
+            write_char = '\x7f';
+            break;
+        case GLFW_KEY_TAB:
+            write_char = '\t';
+            break;
+        default:
+            needs_write = false;
+    }
+
+
+    if (needs_write) {
+        list_push_uint8_t(&window->typed_chars, write_char);
+        return;
+    }
+
+    // Handle ctrl + [key] and alt + [key] here because those won't be send to character_callback.
+    // TODO: Handle special codes like ctrl + space, ctrl + arrows.
+    bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
+    bool is_alt_pressed = mods & GLFW_MOD_ALT;
+    if (!is_ctrl_pressed && !is_alt_pressed) {
+        return;
+    }
+
+    const char *key_name = glfwGetKeyName(key, scancode);
+    if (!key_name || strlen(key_name) != 1) {
+        return;
+    }
+
+    uint8_t key_char = key_name[0];
+
+    if (is_ctrl_pressed) {
+        key_char &= 0x1f;
+    }
+
+    if (is_alt_pressed) {
+        list_push_uint8_t(&window->typed_chars, '\x1b');
+    }
+
+    list_push_uint8_t(&window->typed_chars, key_char);
 }
 
 void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t action, int32_t mods) {
@@ -22,7 +77,7 @@ void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t acti
 
 void character_callback(GLFWwindow *glfw_window, uint32_t codepoint) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
-    list_push_uint32_t(&window->typed_chars, codepoint);
+    list_push_uint8_t(&window->typed_chars, (uint8_t)codepoint);
 }
 
 struct Window window_create(char *title, int32_t width, int32_t height) {
@@ -43,7 +98,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     struct Window window = {
         .glfw_window = glfw_window,
         .input = input_create(),
-        .typed_chars = list_create_uint32_t(16),
+        .typed_chars = list_create_uint8_t(16),
     };
     glfwSetWindowUserPointer(glfw_window, (void *)&window);
 
@@ -63,12 +118,12 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
 
 void window_update(struct Window *window) {
     input_update(&window->input);
-    list_reset_uint32_t(&window->typed_chars);
+    list_reset_uint8_t(&window->typed_chars);
 }
 
 void window_destroy(struct Window *window) {
     input_destroy(&window->input);
-    list_destroy_uint32_t(&window->typed_chars);
+    list_destroy_uint8_t(&window->typed_chars);
 
     glfwTerminate();
 }
