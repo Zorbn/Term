@@ -569,7 +569,7 @@ void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, in
     int32_t origin_y, float r, float g, float b) {
 
     wchar_t character = grid->data[x + y * grid->width];
-    if (character < 33 || character > 126) {
+    if (character == L' ') {
         return;
     }
 
@@ -639,8 +639,6 @@ int main() {
     // TODO: Add texture_bind and texture_destroy
     struct Texture texture_atlas_2d = texture_create("assets/texture_atlas.png");
 
-    struct SpriteBatch sprite_batch = sprite_batch_create(16);
-
     mat4s projection_matrix_2d;
 
     int32_t projection_matrix_location_2d = glGetUniformLocation(program_2d, "projection_matrix");
@@ -656,6 +654,7 @@ int main() {
     window.console = SetUpPseudoConsole((COORD){grid_width, grid_height});
     printf("Console result: %ld\n", window.console.result);
     struct Grid grid = grid_create(grid_width, grid_height);
+    struct SpriteBatch sprite_batch = sprite_batch_create(grid.size * 2);
 
     CHAR read_buffer[READ_BUFFER_SIZE];
 
@@ -704,10 +703,21 @@ int main() {
             BOOL did_read = ReadFile(window.console.output, read_buffer, READ_BUFFER_SIZE, &dwRead, NULL);
             if (did_read && dwRead != 0) {
                 size_t out;
+                // TODO: Does it make sense to use wchar_t's instead of char?
                 mbstowcs_s(&out, data.text, data_text_capacity, read_buffer, dwRead);
                 data.textLength = dwRead;
 
                 for (size_t i = 0; i < data.textLength;) {
+                    // Skip multi-byte text. Replace it with a box character.
+                    if (data.text[i] & 0x80) {
+                        size_t j = 0;
+                        while (j < 4 && ((data.text[i] << j) & 0x80)) {
+                            j++;
+                        }
+                        i += j - 1;
+                        data.text[i] = 127;
+                    }
+
                     // Check for escape sequences.
                     // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n>
                     // is omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they
@@ -740,6 +750,7 @@ int main() {
                         grid.cursor_x = 0;
                         grid.cursor_y++;
                     }
+
                     grid_set_char(&grid, grid.cursor_x, grid.cursor_y, data.text[i]);
                     grid.cursor_x++;
 

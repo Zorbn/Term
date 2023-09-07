@@ -23,8 +23,9 @@ const uint32_t sprite_indices[] = {0, 2, 1, 0, 3, 2};
 struct SpriteBatch sprite_batch_create(int capacity) {
     return (struct SpriteBatch){
         .sprites = list_create_struct_Sprite(capacity),
-        .vertices = list_create_float(capacity * vertex_component_count),
+        .vertices = list_create_float(capacity * 4 * vertex_component_count),
         .indices = list_create_uint32_t(capacity * 6),
+        .mesh = mesh_create(capacity * 4, capacity * 6),
     };
 }
 
@@ -37,7 +38,6 @@ void sprite_batch_add(struct SpriteBatch *sprite_batch, struct Sprite sprite) {
 }
 
 void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_width, int32_t texture_atlas_height) {
-    mesh_destroy(&sprite_batch->mesh);
     list_reset_float(&sprite_batch->vertices);
     list_reset_uint32_t(&sprite_batch->indices);
 
@@ -79,9 +79,9 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
         }
     }
 
-    sprite_batch->mesh =
-        mesh_create(sprite_batch->vertices.data, sprite_batch->vertices.length / vertex_component_count,
-            sprite_batch->indices.data, sprite_batch->indices.length);
+    mesh_update(&sprite_batch->mesh, sprite_batch->vertices.data,
+        sprite_batch->vertices.length / vertex_component_count, sprite_batch->indices.data,
+        sprite_batch->indices.length);
 }
 
 void sprite_batch_draw(struct SpriteBatch *sprite_batch) {
