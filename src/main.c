@@ -211,6 +211,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
     // Control sequence introducers:
     if (data_match_char(data, L'[', i)) {
+        bool is_unsupported = data_match_char(data, L'>', i);
         bool starts_with_question_mark = data_match_char(data, L'?', i);
 
         // TODO: Make sure when parsing sequences that they don't have more numbers supplied then they allow, ie: no
@@ -237,6 +238,12 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             if (!data_match_char(data, L';', i)) {
                 break;
             }
+        }
+
+        // Formats like ESC[>[numbers][character] are not supported.
+        if (is_unsupported) {
+            *i += 1;
+            return true;
         }
 
         // Cursor visibility:

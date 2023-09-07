@@ -18,8 +18,12 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
         return;
     }
 
+    bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
+    bool is_alt_pressed = mods & GLFW_MOD_ALT;
+
     uint8_t write_char = 0;
     bool needs_write = true;
+    bool is_key_arrow = false;
 
     switch (key) {
         case GLFW_KEY_ENTER:
@@ -34,20 +38,45 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
         case GLFW_KEY_TAB:
             write_char = '\t';
             break;
+        case GLFW_KEY_UP:
+            is_key_arrow = true;
+            write_char = 'A';
+            break;
+        case GLFW_KEY_DOWN:
+            is_key_arrow = true;
+            write_char = 'B';
+            break;
+        case GLFW_KEY_RIGHT:
+            is_key_arrow = true;
+            write_char = 'C';
+            break;
+        case GLFW_KEY_LEFT:
+            is_key_arrow = true;
+            write_char = 'D';
+            break;
         default:
             needs_write = false;
     }
 
 
     if (needs_write) {
+        if (is_key_arrow) {
+            list_push_uint8_t(&window->typed_chars, '\x1b');
+            list_push_uint8_t(&window->typed_chars, '[');
+
+            if (is_ctrl_pressed) {
+                list_push_uint8_t(&window->typed_chars, '1');
+                list_push_uint8_t(&window->typed_chars, ';');
+                list_push_uint8_t(&window->typed_chars, '5');
+            }
+        }
+
         list_push_uint8_t(&window->typed_chars, write_char);
         return;
     }
 
     // Handle ctrl + [key] and alt + [key] here because those won't be send to character_callback.
     // TODO: Handle special codes like ctrl + space, ctrl + arrows.
-    bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
-    bool is_alt_pressed = mods & GLFW_MOD_ALT;
     if (!is_ctrl_pressed && !is_alt_pressed) {
         return;
     }
