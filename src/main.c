@@ -104,9 +104,11 @@ struct Grid {
 
     uint32_t current_background_color;
     uint32_t current_foreground_color;
+
+    bool are_colors_swapped;
 };
 
-void grid_set_char_i(struct Grid *grid, int32_t i, wchar_t character) {
+inline void grid_set_char_i(struct Grid *grid, int32_t i, wchar_t character) {
     grid->data[i] = character;
     grid->background_colors[i] = grid->current_background_color;
     grid->foreground_colors[i] = grid->current_foreground_color;
@@ -145,9 +147,7 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, wchar_t character) {
     }
 
     size_t i = x + y * grid->width;
-    grid->data[i] = character;
-    grid->background_colors[i] = grid->current_background_color;
-    grid->foreground_colors[i] = grid->current_foreground_color;
+    grid_set_char_i(grid, i, character);
 }
 
 void grid_scroll_down(struct Grid *grid) {
@@ -187,6 +187,18 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
 
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
     grid_cursor_move_to(grid, grid->cursor_x + delta_x, grid->cursor_y + delta_y);
+}
+
+void grid_swap_current_colors(struct Grid *grid) {
+    uint32_t old_background_color = grid->current_background_color;
+    grid->current_background_color = grid->current_foreground_color;
+    grid->current_foreground_color = old_background_color;
+}
+
+void grid_reset_formatting(struct Grid *grid) {
+    grid->are_colors_swapped = false;
+    grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
+    grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
 }
 
 // Returns true if an escape sequence was parsed.
@@ -326,30 +338,50 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             if (data_match_char(data, L'm', i)) {
                 // TODO: Support more formats.
 
+                uint32_t *background_color = &grid->current_background_color;
+                uint32_t *foreground_color = &grid->current_foreground_color;
+
+                if (grid->are_colors_swapped) {
+                    background_color = &grid->current_foreground_color;
+                    foreground_color = &grid->current_background_color;
+                }
+
                 if (parsed_number_count == 0) {
-                    grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
-                    grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                    grid_reset_formatting(grid);
                 }
                 // Set foreground RGB.
                 else if (parsed_numbers[0] == 38 && parsed_numbers[1] == 2) {
                     uint32_t r = parsed_numbers[2];
                     uint32_t g = parsed_numbers[3];
                     uint32_t b = parsed_numbers[4];
-                    grid->current_foreground_color = (r << 16) | (g << 8) | b;
+                    *foreground_color = (r << 16) | (g << 8) | b;
                 }
                 // Set background RGB.
                 else if (parsed_numbers[0] == 48 && parsed_numbers[1] == 2) {
                     uint32_t r = parsed_numbers[2];
                     uint32_t g = parsed_numbers[3];
                     uint32_t b = parsed_numbers[4];
-                    grid->current_background_color = (r << 16) | (g << 8) | b;
+                    *background_color = (r << 16) | (g << 8) | b;
                 }
                 else {
                     for (size_t i = 0; i < parsed_number_count; i++) {
                         switch (parsed_numbers[i]) {
                             case 0: {
-                                grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
-                                grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                                grid_reset_formatting(grid);
+                                break;
+                            }
+                            case 7: {
+                                if (!grid->are_colors_swapped) {
+                                    grid_swap_current_colors(grid);
+                                    grid->are_colors_swapped = true;
+                                }
+                                break;
+                            }
+                            case 27: {
+                                if (grid->are_colors_swapped) {
+                                    grid_swap_current_colors(grid);
+                                    grid->are_colors_swapped = false;
+                                }
                                 break;
                             }
                             case 30:
@@ -362,7 +394,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                             case 37:
                             case 38:
                             case 39: {
-                                grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                                *foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
                                 break;
                             }
                             case 40:
@@ -375,7 +407,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                             case 47:
                             case 48:
                             case 49: {
-                                grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
+                                *background_color = GRID_BACKGROUND_COLOR_DEFAULT;
                                 break;
                             }
                         }
