@@ -16,9 +16,8 @@
 
 /*
  * TODO:
- * Support setting fg and bg colors, Micro uses this to draw the cursor.
- * Unicode characters and box drawing characters aren't handled well,
  * Dynamic resizing.
+ * Unicode characters and box drawing characters aren't handled well,
  * (ie: Helix breaks when it shows a unicode animation after opening a file, or when it does box drawing while typing a
  * command).
  */
@@ -69,6 +68,23 @@ void data_destroy(Data *data) {
     free(data->text);
 }
 
+struct Color {
+    float r;
+    float g;
+    float b;
+};
+
+struct Color color_from_hex(uint32_t hex) {
+    return (struct Color){
+        .r = (hex >> 16) / 255.0f,
+        .g = ((hex >> 8) & 0xff) / 255.0f,
+        .b = (hex & 0xff) / 255.0f,
+    };
+}
+
+#define GRID_BACKGROUND_COLOR_DEFAULT 0x000000
+#define GRID_FOREGROUND_COLOR_DEFAULT 0xffffff
+
 struct Grid {
     wchar_t *data;
     size_t width;
@@ -82,20 +98,38 @@ struct Grid {
     int32_t saved_cursor_y;
 
     bool show_cursor;
+
+    uint32_t *background_colors;
+    uint32_t *foreground_colors;
+
+    uint32_t current_background_color;
+    uint32_t current_foreground_color;
 };
+
+void grid_set_char_i(struct Grid *grid, int32_t i, wchar_t character) {
+    grid->data[i] = character;
+    grid->background_colors[i] = grid->current_background_color;
+    grid->foreground_colors[i] = grid->current_foreground_color;
+}
 
 struct Grid grid_create(size_t width, size_t height) {
     size_t size = width * height;
     struct Grid grid = (struct Grid){
-        .data = malloc(width * height * sizeof(wchar_t)),
+        .data = malloc(size * sizeof(wchar_t)),
         .width = width,
         .height = height,
         .size = size,
+
+        .background_colors = malloc(size * sizeof(uint32_t)),
+        .foreground_colors = malloc(size * sizeof(uint32_t)),
+
+        .current_background_color = GRID_BACKGROUND_COLOR_DEFAULT,
+        .current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT,
     };
     assert(grid.data);
 
     for (size_t i = 0; i < size; i++) {
-        grid.data[i] = L' ';
+        grid_set_char_i(&grid, i, L' ');
     }
 
     return grid;
@@ -105,21 +139,23 @@ void grid_destroy(struct Grid *grid) {
     free(grid->data);
 }
 
-void grid_scroll_down(struct Grid *grid) {
-    memmove(&grid->data[0], &grid->data[grid->width], (grid->size - grid->width) * sizeof(wchar_t));
-
-    size_t new_row_start_i = (grid->height - 1) * grid->width;
-    for (size_t i = 0; i < grid->width; i++) {
-        grid->data[i + new_row_start_i] = L' ';
-    }
-}
-
-void grid_char_set(struct Grid *grid, int32_t x, int32_t y, wchar_t character) {
+void grid_set_char(struct Grid *grid, int32_t x, int32_t y, wchar_t character) {
     if (x < 0 || y < 0 || x >= grid->width || y >= grid->height) {
         return;
     }
 
-    grid->data[x + y * grid->width] = character;
+    size_t i = x + y * grid->width;
+    grid->data[i] = character;
+    grid->background_colors[i] = grid->current_background_color;
+    grid->foreground_colors[i] = grid->current_foreground_color;
+}
+
+void grid_scroll_down(struct Grid *grid) {
+    memmove(&grid->data[0], &grid->data[grid->width], (grid->size - grid->width) * sizeof(wchar_t));
+
+    for (size_t i = 0; i < grid->width; i++) {
+        grid_set_char(grid, i, grid->height - 1, L' ');
+    }
 }
 
 void grid_cursor_save(struct Grid *grid) {
@@ -217,14 +253,14 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
         // TODO: Make sure when parsing sequences that they don't have more numbers supplied then they allow, ie: no
         // ESC[10;5A because A should only accept one number.
         // The maximum amount of numbers supported is 16, for the "m" commands (text formatting).
-        int32_t parsed_numbers[16] = {0};
+        uint32_t parsed_numbers[16] = {0};
         size_t parsed_number_count = 0;
 
         for (size_t parsed_number_i = 0; parsed_number_i < 16; parsed_number_i++) {
             bool did_parse_number = false;
             while (data_peek_digit(data, *i)) {
                 did_parse_number = true;
-                int32_t digit = data->text[*i] - L'0';
+                uint32_t digit = data->text[*i] - L'0';
                 parsed_numbers[parsed_number_i] = parsed_numbers[parsed_number_i] * 10 + digit;
                 *i += 1;
             }
@@ -288,7 +324,64 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
         // Text formatting:
         {
             if (data_match_char(data, L'm', i)) {
-                // TODO: Change format.
+                // TODO: Support more formats.
+
+                if (parsed_number_count == 0) {
+                    grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
+                    grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                }
+                // Set foreground RGB.
+                else if (parsed_numbers[0] == 38 && parsed_numbers[1] == 2) {
+                    uint32_t r = parsed_numbers[2];
+                    uint32_t g = parsed_numbers[3];
+                    uint32_t b = parsed_numbers[4];
+                    grid->current_foreground_color = (r << 16) | (g << 8) | b;
+                }
+                // Set background RGB.
+                else if (parsed_numbers[0] == 48 && parsed_numbers[1] == 2) {
+                    uint32_t r = parsed_numbers[2];
+                    uint32_t g = parsed_numbers[3];
+                    uint32_t b = parsed_numbers[4];
+                    grid->current_background_color = (r << 16) | (g << 8) | b;
+                }
+                else {
+                    for (size_t i = 0; i < parsed_number_count; i++) {
+                        switch (parsed_numbers[i]) {
+                            case 0: {
+                                grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
+                                grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                                break;
+                            }
+                            case 30:
+                            case 31:
+                            case 32:
+                            case 33:
+                            case 34:
+                            case 35:
+                            case 36:
+                            case 37:
+                            case 38:
+                            case 39: {
+                                grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                                break;
+                            }
+                            case 40:
+                            case 41:
+                            case 42:
+                            case 43:
+                            case 44:
+                            case 45:
+                            case 46:
+                            case 47:
+                            case 48:
+                            case 49: {
+                                grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 return true;
             }
         }
@@ -308,7 +401,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
             }
 
             if (parsed_number_count < 2) {
-                int32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 1;
+                uint32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 1;
 
                 // Up:
                 if (data_match_char(data, L'A', i)) {
@@ -351,8 +444,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                 }
             }
 
-            int32_t y = parsed_number_count > 0 ? parsed_numbers[0] : 1;
-            int32_t x = parsed_number_count > 1 ? parsed_numbers[1] : 1;
+            uint32_t y = parsed_number_count > 0 ? parsed_numbers[0] : 1;
+            uint32_t x = parsed_number_count > 1 ? parsed_numbers[1] : 1;
 
             // Cursor position or horizontal vertical position:
             if (data_match_char(data, L'H', i) || data_match_char(data, L'f', i)) {
@@ -365,17 +458,17 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
 
         // Text modification:
         {
-            int32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 0;
+            uint32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 0;
 
             if (data_match_char(data, L'X', i)) {
-                int32_t erase_start = grid->cursor_x + grid->cursor_y * grid->width;
-                int32_t erase_count = grid->size - erase_start;
+                uint32_t erase_start = grid->cursor_x + grid->cursor_y * grid->width;
+                uint32_t erase_count = grid->size - erase_start;
                 if (n < erase_count) {
                     erase_count = n;
                 }
 
-                for (size_t erase_i = 0; erase_i < erase_count; erase_i++) {
-                    grid->data[erase_start + erase_i] = L' ';
+                for (size_t erase_i = erase_start; erase_i < erase_start + erase_count; erase_i++) {
+                    grid_set_char_i(grid, erase_i, L' ');
                 }
 
                 return true;
@@ -386,7 +479,22 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                     // Erase line after cursor.
                     if (data_match_char(data, L'K', i)) {
                         for (size_t x = grid->cursor_x; x < grid->width; x++) {
-                            grid_char_set(grid, x, grid->cursor_y, L' ');
+                            grid_set_char(grid, x, grid->cursor_y, L' ');
+                        }
+
+                        return true;
+                    }
+
+                    break;
+                }
+                case 1: {
+                    if (data_match_char(data, L'J', i)) {
+                        // Erase display before cursor.
+                        uint32_t erase_start = grid->cursor_x + grid->cursor_y * grid->width;
+                        uint32_t erase_count = grid->size - erase_start;
+
+                        for (size_t erase_i = erase_start; erase_i < erase_start + erase_count; erase_i++) {
+                            grid_set_char_i(grid, erase_i, L' ');
                         }
 
                         return true;
@@ -399,8 +507,16 @@ bool grid_parse_escape_sequence(struct Grid *grid, Data *data, size_t *i, struct
                         // Erase entire display.
                         for (size_t y = 0; y < grid->height; y++) {
                             for (size_t x = 0; x < grid->width; x++) {
-                                grid_char_set(grid, x, y, L' ');
+                                grid_set_char(grid, x, y, L' ');
                             }
+                        }
+
+                        return true;
+                    }
+                    // Erase entire line.
+                    else if (data_match_char(data, L'K', i)) {
+                        for (size_t x = 0; x < grid->width; x++) {
+                            grid_set_char(grid, x, grid->cursor_y, L' ');
                         }
 
                         return true;
@@ -442,8 +558,9 @@ void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, in
                                    });
 }
 
-void grid_draw_cursor(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
+void grid_draw_box(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
+    int32_t origin_y, float r, float g, float b) {
+
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * 6,
                                        .y = origin_y - (y + 1) * 14,
@@ -455,11 +572,27 @@ void grid_draw_cursor(
                                        .texture_width = 6,
                                        .texture_height = 14,
 
-                                       .r = 1.0f,
-                                       .g = 1.0f,
-                                       .b = 1.0f,
+                                       .r = r,
+                                       .g = g,
+                                       .b = b,
                                    });
+}
 
+void grid_draw_tile(
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
+
+    size_t i = x + y * grid->width;
+    struct Color background_color = color_from_hex(grid->background_colors[i]);
+    grid_draw_box(grid, sprite_batch, x, y, z, origin_y, background_color.r, background_color.g, background_color.b);
+    struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
+    grid_draw_character(
+        grid, sprite_batch, x, y, z + 1, origin_y, foreground_color.r, foreground_color.g, foreground_color.b);
+}
+
+void grid_draw_cursor(
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
+
+    grid_draw_box(grid, sprite_batch, x, y, z, origin_y, 1.0f, 1.0f, 1.0f);
     grid_draw_character(grid, sprite_batch, x, y, z + 1, origin_y, 0.0f, 0.0f, 0.0f);
 }
 
@@ -523,7 +656,7 @@ int main() {
         float time_of_day = 0.5f * (sin(elapsed_time * 0.1f) + 1.0f);
 
         // START HANDLE TERMINAL
-        CHAR *typed_chars = (CHAR*)window.typed_chars.data;
+        CHAR *typed_chars = (CHAR *)window.typed_chars.data;
         WriteFile(window.console.input, typed_chars, window.typed_chars.length, NULL, NULL);
 
         // Exit when the process we're reading from exits.
@@ -575,7 +708,7 @@ int main() {
                         grid.cursor_x = 0;
                         grid.cursor_y++;
                     }
-                    grid_char_set(&grid, grid.cursor_x, grid.cursor_y, data.text[i]);
+                    grid_set_char(&grid, grid.cursor_x, grid.cursor_y, data.text[i]);
                     grid.cursor_x++;
 
                     i++;
@@ -587,12 +720,12 @@ int main() {
 
         for (size_t y = 0; y < grid.height; y++) {
             for (size_t x = 0; x < grid.width; x++) {
-                grid_draw_character(&grid, &sprite_batch, x, y, 0, window.height, 1.0f, 1.0f, 1.0f);
+                grid_draw_tile(&grid, &sprite_batch, x, y, 0, window.height);
             }
         }
 
         if (grid.show_cursor) {
-            grid_draw_cursor(&grid, &sprite_batch, grid.cursor_x, grid.cursor_y, 1, window.height);
+            grid_draw_cursor(&grid, &sprite_batch, grid.cursor_x, grid.cursor_y, 2, window.height);
         }
 
         sprite_batch_end(&sprite_batch, texture_atlas_2d.width, texture_atlas_2d.height);
