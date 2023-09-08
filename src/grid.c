@@ -901,23 +901,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
 
             switch (n) {
                 case 0: {
-                    // Erase line after cursor.
-                    if (text_buffer_match_char(data, 'K', i)) {
-                        for (size_t x = grid->cursor_x; x < grid->width; x++) {
-                            grid_set_char(grid, x, grid->cursor_y, ' ');
-                        }
-
-                        return true;
-                    }
-
-                    // TODO:
-                    puts("missed J0");
-
-                    break;
-                }
-                case 1: {
+                    // Erase display after cursor.
                     if (text_buffer_match_char(data, 'J', i)) {
-                        // Erase display before cursor.
                         uint32_t erase_start = grid->cursor_x + grid->cursor_y * grid->width;
                         uint32_t erase_count = grid->size - erase_start;
 
@@ -927,15 +912,42 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
 
                         return true;
                     }
+                    // Erase line after cursor.
+                    else if (text_buffer_match_char(data, 'K', i)) {
+                        for (size_t x = grid->cursor_x; x < grid->width; x++) {
+                            grid_set_char(grid, x, grid->cursor_y, ' ');
+                        }
 
-                    // TODO:
-                    puts("missed K1");
+                        return true;
+                    }
+
+                    break;
+                }
+                case 1: {
+                    // Erase display before cursor.
+                    if (text_buffer_match_char(data, 'J', i)) {
+                        uint32_t erase_count = grid->cursor_x + grid->cursor_y * grid->width;
+
+                        for (size_t erase_i = 0; erase_i < erase_count; erase_i++) {
+                            grid_set_char_i(grid, erase_i, ' ');
+                        }
+
+                        return true;
+                    }
+                    // Erase line before cursor.
+                    else if (text_buffer_match_char(data, 'K', i)) {
+                        for (size_t x = 0; x <= grid->cursor_x; x++) {
+                            grid_set_char(grid, x, grid->cursor_y, ' ');
+                        }
+
+                        return true;
+                    }
 
                     break;
                 }
                 case 2: {
+                    // Erase entire display.
                     if (text_buffer_match_char(data, 'J', i)) {
-                        // Erase entire display.
                         for (size_t y = 0; y < grid->height; y++) {
                             for (size_t x = 0; x < grid->width; x++) {
                                 grid_set_char(grid, x, y, ' ');
