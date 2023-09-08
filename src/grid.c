@@ -1,6 +1,7 @@
 #include "grid.h"
 
 #include "color.h"
+#include "font.h"
 
 #define GRID_BACKGROUND_COLOR_DEFAULT 0x000000
 #define GRID_FOREGROUND_COLOR_DEFAULT 0xffffff
@@ -519,14 +520,14 @@ void grid_draw_character(
     }
 
     sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * 6 * scale,
+                                       .x = x * FONT_GLYPH_WIDTH * scale,
                                        .z = z * scale,
-                                       .width = 6 * scale,
-                                       .height = 14 * scale,
+                                       .width = FONT_GLYPH_WIDTH * scale,
+                                       .height = FONT_GLYPH_HEIGHT * scale,
 
                                        .texture_x = 8 * (character - 32),
-                                       .texture_width = 6,
-                                       .texture_height = 14,
+                                       .texture_width = FONT_GLYPH_WIDTH,
+                                       .texture_height = FONT_GLYPH_HEIGHT,
 
                                        .r = r,
                                        .g = g,
@@ -538,14 +539,14 @@ void grid_draw_box(
     struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
 
     sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * 6 * scale,
+                                       .x = x * FONT_GLYPH_WIDTH * scale,
                                        .z = z * scale,
-                                       .width = 6 * scale,
-                                       .height = 14 * scale,
+                                       .width = FONT_GLYPH_WIDTH * scale,
+                                       .height = FONT_GLYPH_HEIGHT * scale,
 
                                        .texture_x = 0,
-                                       .texture_width = 6,
-                                       .texture_height = 14,
+                                       .texture_width = FONT_GLYPH_WIDTH,
+                                       .texture_height = FONT_GLYPH_HEIGHT,
 
                                        .r = r,
                                        .g = g,

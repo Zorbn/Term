@@ -1,5 +1,7 @@
 #include "renderer.h"
 
+#include "../font.h"
+
 const float sky_color_r = 50.0f / 255.0f;
 const float sky_color_g = 74.0f / 255.0f;
 const float sky_color_b = 117.0f / 255.0f;
@@ -50,7 +52,7 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
             sprite_batch_end(sprite_batch, renderer->texture_atlas.width, renderer->texture_atlas.height);
         }
 
-        float offset_y = origin_y - (y + 1) * 14 * renderer->scale;
+        float offset_y = origin_y - (y + 1) * FONT_GLYPH_HEIGHT * renderer->scale;
         glUniform1f(renderer->offset_y_location, offset_y);
         sprite_batch_draw(sprite_batch);
     }

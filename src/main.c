@@ -3,7 +3,7 @@
 #include "window.h"
 #include "grid.h"
 #include "text_buffer.h"
-
+#include "font.h"
 #include "graphics/renderer.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -24,8 +24,8 @@
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
 
-    const int32_t grid_width = window.width / 6;
-    const int32_t grid_height = window.height / 14;
+    const int32_t grid_width = window.width / FONT_GLYPH_WIDTH;
+    const int32_t grid_height = window.height / FONT_GLYPH_HEIGHT;
     window.pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
     printf("Console result: %ld\n", window.pseudo_console.result);
 
@@ -40,8 +40,8 @@ int main() {
     while (!glfwWindowShouldClose(window.glfw_window)) {
         if (window.did_resize) {
             // TODO: Don't hard code font glyph size anywhere.
-            size_t new_grid_width = window.width / (window.scale * 6);
-            size_t new_grid_height = window.height / (window.scale * 14);
+            size_t new_grid_width = window.width / (window.scale * FONT_GLYPH_WIDTH);
+            size_t new_grid_height = window.height / (window.scale * FONT_GLYPH_HEIGHT);
 
             if (new_grid_width < 1) {
                 new_grid_width = 1;
@@ -91,7 +91,7 @@ int main() {
                             j++;
                         }
                         i += j - 1;
-                        text_buffer.data[i] = 127;
+                        text_buffer.data[i] = FONT_LENGTH + 32;
                     }
 
                     // Check for escape sequences.
