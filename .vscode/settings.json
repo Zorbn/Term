@@ -1,0 +1,30 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "*.script": "lua",
+        "*.gui_script": "lua",
+        "*.render_script": "lua",
+        "*.editor_script": "lua",
+        "glad.h": "c",
+        "glfw3.h": "c",
+        "inttypes.h": "c",
+        "utility": "cpp",
+        "xutility": "cpp",
+        "compare": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "xmemory": "cpp",
+        "xtr1common": "cpp",
+        "struct.h": "c",
+        "stdlib.h": "c",
+        "window.h": "c",
+        "mesher.h": "c",
+        "stb_image.h": "c",
+        "stdbool.h": "c",
+        "mesh.h": "c",
+        "resources.h": "c",
+        "assert.h": "c",
+        "string.h": "c",
+        "camera.h": "c"
+    }
+}

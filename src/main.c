@@ -125,8 +125,7 @@ int main() {
                     }
 
                     if (grid.cursor_x >= grid.width) {
-                        grid.cursor_x = 0;
-                        grid.cursor_y++;
+                        grid_cursor_move_to(&grid, 0, grid.cursor_y + 1);
                     }
                     grid_set_char(&grid, grid.cursor_x, grid.cursor_y, text_buffer.data[i]);
                     grid.cursor_x++;
