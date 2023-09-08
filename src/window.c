@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+const float min_zoom_level = 1;
+const float max_zoom_level = 4;
+
 void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, int32_t height) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     window->width = width;
@@ -111,6 +114,36 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
     uint8_t key_char = key_name[0];
 
     if (is_ctrl_pressed) {
+        bool block_key = true;
+        switch (key_char) {
+            case '-': {
+                if (is_shift_pressed || window->scale <= min_zoom_level) {
+                    break;
+                }
+
+                window->scale--;
+                window->did_resize = true;
+                break;
+            }
+            case '=': {
+                if (!is_shift_pressed || window->scale >= max_zoom_level) {
+                    break;
+                }
+
+                window->scale++;
+                window->did_resize = true;
+                break;
+            }
+            default: {
+                block_key = false;
+                break;
+            }
+        }
+
+        if (block_key) {
+            return;
+        }
+
         key_char &= 0x1f;
     }
 
@@ -152,6 +185,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
         .typed_chars = list_create_uint8_t(16),
         .width = width,
         .height = height,
+        .scale = 1.0f,
     };
     glfwSetWindowUserPointer(glfw_window, (void *)&window);
 

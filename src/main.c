@@ -40,12 +40,20 @@ int main() {
     while (!glfwWindowShouldClose(window.glfw_window)) {
         if (window.did_resize) {
             // TODO: Don't hard code font glyph size anywhere.
-            const size_t new_grid_width = window.width / 6;
-            const size_t new_grid_height = window.height / 14;
+            size_t new_grid_width = window.width / (window.scale * 6);
+            size_t new_grid_height = window.height / (window.scale * 14);
+
+            if (new_grid_width < 1) {
+                new_grid_width = 1;
+            }
+
+            if (new_grid_height < 1) {
+                new_grid_height = 1;
+            }
 
             pseudo_console_resize(&window.pseudo_console, new_grid_width, new_grid_height);
             grid_resize(window.grid, new_grid_width, new_grid_height);
-            renderer_resize(&renderer, &grid);
+            renderer_resize(&renderer, &grid, window.scale);
 
             window.did_resize = false;
         }
@@ -70,8 +78,10 @@ int main() {
         }
 
         DWORD bytes_available;
-        while (PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
-            BOOL did_read = ReadFile(window.pseudo_console.output, text_buffer.data, TEXT_BUFFER_CAPACITY, &text_buffer.length, NULL);
+        while (
+            PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
+            BOOL did_read = ReadFile(
+                window.pseudo_console.output, text_buffer.data, TEXT_BUFFER_CAPACITY, &text_buffer.length, NULL);
             if (did_read) {
                 for (size_t i = 0; i < text_buffer.length;) {
                     // Skip multi-byte text. Replace it with a box character.

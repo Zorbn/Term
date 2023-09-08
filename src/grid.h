@@ -41,9 +41,9 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y);
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y);
 bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size_t *i, struct Window *window);
 void grid_draw_tile(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z);
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale);
 void grid_draw_cursor(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z);
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale);
 void grid_destroy(struct Grid *grid);
 
 inline void grid_set_char_i(struct Grid *grid, int32_t i, char character) {

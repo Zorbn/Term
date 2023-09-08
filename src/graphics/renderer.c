@@ -9,6 +9,7 @@ struct Renderer renderer_create(struct Grid *grid) {
     glEnable(GL_CULL_FACE);
 
     struct Renderer renderer = (struct Renderer){
+        .scale = 1,
         .program = program_create("assets/shader_2d.vert", "assets/shader_2d.frag"),
         // TODO: Add texture_bind and texture_destroy
         .texture_atlas = texture_create("assets/texture_atlas.png"),
@@ -17,7 +18,7 @@ struct Renderer renderer_create(struct Grid *grid) {
     renderer.projection_matrix_location = glGetUniformLocation(renderer.program, "projection_matrix");
     renderer.offset_y_location = glGetUniformLocation(renderer.program, "offset_y");
 
-    renderer_resize(&renderer, grid);
+    renderer_resize(&renderer, grid, renderer.scale);
 
     return renderer;
 }
@@ -39,17 +40,17 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
             sprite_batch_begin(sprite_batch);
 
             for (size_t x = 0; x < grid->width; x++) {
-                grid_draw_tile(grid, sprite_batch, x, y, 0);
+                grid_draw_tile(grid, sprite_batch, x, y, 0, renderer->scale);
             }
 
             if (grid->show_cursor && y == grid->cursor_y) {
-                grid_draw_cursor(grid, sprite_batch, grid->cursor_x, grid->cursor_y, 2);
+                grid_draw_cursor(grid, sprite_batch, grid->cursor_x, grid->cursor_y, 2, renderer->scale);
             }
 
             sprite_batch_end(sprite_batch, renderer->texture_atlas.width, renderer->texture_atlas.height);
         }
 
-        float offset_y = origin_y - (y + 1) * 14;
+        float offset_y = origin_y - (y + 1) * 14 * renderer->scale;
         glUniform1f(renderer->offset_y_location, offset_y);
         sprite_batch_draw(sprite_batch);
     }
@@ -62,7 +63,9 @@ void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t 
     renderer->projection_matrix = glms_ortho(0.0f, (float)width, 0.0f, (float)height, -100.0, 100.0);
 }
 
-void renderer_resize(struct Renderer *renderer, struct Grid *grid) {
+void renderer_resize(struct Renderer *renderer, struct Grid *grid, float scale) {
+    renderer->scale = scale;
+
     if (renderer->sprite_batches) {
         for (size_t i = 0; i < renderer->sprite_batch_count; i++) {
             sprite_batch_destroy(&renderer->sprite_batches[i]);

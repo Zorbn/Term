@@ -511,7 +511,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
 }
 
 void grid_draw_character(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float r, float g, float b) {
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale, float r, float g, float b) {
 
     char character = grid->data[x + y * grid->width];
     if (character == ' ') {
@@ -519,10 +519,10 @@ void grid_draw_character(
     }
 
     sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * 6,
-                                       .z = z,
-                                       .width = 6,
-                                       .height = 14,
+                                       .x = x * 6 * scale,
+                                       .z = z * scale,
+                                       .width = 6 * scale,
+                                       .height = 14 * scale,
 
                                        .texture_x = 8 * (character - 32),
                                        .texture_width = 6,
@@ -535,13 +535,13 @@ void grid_draw_character(
 }
 
 void grid_draw_box(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float r, float g, float b) {
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
 
     sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * 6,
-                                       .z = z,
-                                       .width = 6,
-                                       .height = 14,
+                                       .x = x * 6 * scale,
+                                       .z = z * scale,
+                                       .width = 6 * scale,
+                                       .height = 14 * scale,
 
                                        .texture_x = 0,
                                        .texture_width = 6,
@@ -553,18 +553,18 @@ void grid_draw_box(
                                    });
 }
 
-void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z) {
+void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
 
     size_t i = x + y * grid->width;
     struct Color background_color = color_from_hex(grid->background_colors[i]);
-    grid_draw_box(grid, sprite_batch, x, z, background_color.r, background_color.g, background_color.b);
+    grid_draw_box(grid, sprite_batch, x, z, scale, background_color.r, background_color.g, background_color.b);
     struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
-    grid_draw_character(grid, sprite_batch, x, y, z + 1, foreground_color.r, foreground_color.g, foreground_color.b);
+    grid_draw_character(grid, sprite_batch, x, y, z + 1, scale, foreground_color.r, foreground_color.g, foreground_color.b);
 }
 
-void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z) {
-    grid_draw_box(grid, sprite_batch, x, z, 1.0f, 1.0f, 1.0f);
-    grid_draw_character(grid, sprite_batch, x, y, z + 1, 0.0f, 0.0f, 0.0f);
+void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
+    grid_draw_box(grid, sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
+    grid_draw_character(grid, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
 }
 
 void grid_destroy(struct Grid *grid) {

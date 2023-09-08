@@ -23,6 +23,7 @@ struct Window {
     GLFWwindow *glfw_window;
     int32_t width;
     int32_t height;
+    float scale;
     bool did_resize;
     struct Input input;
     // TODO: Move to input struct:
