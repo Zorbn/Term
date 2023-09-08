@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.0.0)
-project(CBlock VERSION 0.1.0 LANGUAGES C)
+project(Term VERSION 0.1.0 LANGUAGES C)
 set(C_STANDARD 11)
 
 include(CTest)
 enable_testing()
 
 set (
-    CBLOCK_SOURCE_FILES
+    TERM_SOURCE_FILES
 
     src/main.c
     src/list.h
@@ -24,12 +24,12 @@ set (
 )
 
 add_executable(
-    CBlock
+    Term
 
-    ${CBLOCK_SOURCE_FILES}
+    ${TERM_SOURCE_FILES}
     deps/glad/src/glad.c
 )
-target_include_directories(CBlock PRIVATE deps/glad/include deps/stb_image/include)
+target_include_directories(Term PRIVATE deps/glad/include deps/stb_image/include)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -38,10 +38,10 @@ add_subdirectory(deps/glfw)
 
 add_subdirectory(deps/cglm)
 
-target_link_libraries(CBlock PRIVATE glfw cglm)
+target_link_libraries(Term PRIVATE glfw cglm)
 
 if(NOT MSVC)
-    set_source_files_properties(${CBLOCK_SOURCE_FILES} PROPERTIES COMPILE_FLAGS -Wall -Werror -Wpedantic)
+    set_source_files_properties(${TERM_SOURCE_FILES} PROPERTIES COMPILE_FLAGS -Wall -Werror -Wpedantic)
 endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

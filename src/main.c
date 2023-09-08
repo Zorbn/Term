@@ -22,7 +22,7 @@
  */
 
 int main() {
-    struct Window window = window_create("CBlock", 640, 480);
+    struct Window window = window_create("Term", 640, 480);
 
     const int32_t grid_width = window.width / FONT_GLYPH_WIDTH;
     const int32_t grid_height = window.height / FONT_GLYPH_HEIGHT;

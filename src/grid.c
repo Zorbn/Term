@@ -665,6 +665,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                                 if (i + 2 < parsed_number_count && parsed_numbers[i + 1] == 5) {
                                     size_t color_table_i = parsed_numbers[i + 2] % 256;
                                     *foreground_color = color_table[color_table_i];
+                                    i += 2;
                                     break;
                                 }
 
@@ -676,6 +677,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                                 uint32_t g = parsed_numbers[i + 3];
                                 uint32_t b = parsed_numbers[i + 4];
                                 *foreground_color = (r << 16) | (g << 8) | b;
+                                i += 4;
                                 break;
                             }
                             case 39: {
@@ -718,6 +720,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                                 if (i + 2 < parsed_number_count && parsed_numbers[i + 1] == 5) {
                                     size_t color_table_i = parsed_numbers[i + 2] % 256;
                                     *background_color = color_table[color_table_i];
+                                    i += 2;
                                     break;
                                 }
 
@@ -729,6 +732,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                                 uint32_t g = parsed_numbers[i + 3];
                                 uint32_t b = parsed_numbers[i + 4];
                                 *background_color = (r << 16) | (g << 8) | b;
+                                i += 4;
                                 break;
                             }
                             case 49: {
