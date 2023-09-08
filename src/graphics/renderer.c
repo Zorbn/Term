@@ -2,16 +2,14 @@
 
 #include "../font.h"
 
-const float sky_color_r = 50.0f / 255.0f;
-const float sky_color_g = 74.0f / 255.0f;
-const float sky_color_b = 117.0f / 255.0f;
-
 struct Renderer renderer_create(struct Grid *grid) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
     struct Renderer renderer = (struct Renderer){
         .scale = 1,
+        .background_color = color_from_hex(GRID_COLOR_BACKGROUND_DEFAULT),
+
         .program = program_create("assets/shader_2d.vert", "assets/shader_2d.frag"),
         // TODO: Add texture_bind and texture_destroy
         .texture_atlas = texture_create("assets/texture_atlas.png"),
@@ -26,7 +24,7 @@ struct Renderer renderer_create(struct Grid *grid) {
 }
 
 void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, GLFWwindow *glfw_window) {
-    glClearColor(sky_color_r, sky_color_g, sky_color_b, 1.0f);
+    glClearColor(renderer->background_color.r, renderer->background_color.g, renderer->background_color.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(renderer->program);

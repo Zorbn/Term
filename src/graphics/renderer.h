@@ -2,6 +2,7 @@
 #define RENDERER_H
 
 #include "../grid.h"
+#include "../color.h"
 #include "resources.h"
 #include "sprite_batch.h"
 
@@ -12,6 +13,8 @@ struct Renderer {
     size_t sprite_batch_count;
 
     float scale;
+    struct Color background_color;
+
     struct Texture texture_atlas;
     mat4s projection_matrix;
     uint32_t program;

@@ -39,7 +39,6 @@ int main() {
 
     while (!glfwWindowShouldClose(window.glfw_window)) {
         if (window.did_resize) {
-            // TODO: Don't hard code font glyph size anywhere.
             size_t new_grid_width = window.width / (window.scale * FONT_GLYPH_WIDTH);
             size_t new_grid_height = window.height / (window.scale * FONT_GLYPH_HEIGHT);
 

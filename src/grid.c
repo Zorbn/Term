@@ -3,8 +3,264 @@
 #include "color.h"
 #include "font.h"
 
-#define GRID_BACKGROUND_COLOR_DEFAULT 0x000000
-#define GRID_FOREGROUND_COLOR_DEFAULT 0xffffff
+const uint32_t color_table[256] = {
+    0x000000,
+    0x800000,
+    0x008000,
+    0x808000,
+    0x000080,
+    0x800080,
+    0x008080,
+    0xc0c0c0,
+    0x808080,
+    0xff0000,
+    0x00ff00,
+    0xffff00,
+    0x0000ff,
+    0xff00ff,
+    0x00ffff,
+    0xffffff,
+    0x000000,
+    0x00005f,
+    0x000087,
+    0x0000af,
+    0x0000d7,
+    0x0000ff,
+    0x005f00,
+    0x005f5f,
+    0x005f87,
+    0x005faf,
+    0x005fd7,
+    0x005fff,
+    0x008700,
+    0x00875f,
+    0x008787,
+    0x0087af,
+    0x0087d7,
+    0x0087ff,
+    0x00af00,
+    0x00af5f,
+    0x00af87,
+    0x00afaf,
+    0x00afd7,
+    0x00afff,
+    0x00d700,
+    0x00d75f,
+    0x00d787,
+    0x00d7af,
+    0x00d7d7,
+    0x00d7ff,
+    0x00ff00,
+    0x00ff5f,
+    0x00ff87,
+    0x00ffaf,
+    0x00ffd7,
+    0x00ffff,
+    0x5f0000,
+    0x5f005f,
+    0x5f0087,
+    0x5f00af,
+    0x5f00d7,
+    0x5f00ff,
+    0x5f5f00,
+    0x5f5f5f,
+    0x5f5f87,
+    0x5f5faf,
+    0x5f5fd7,
+    0x5f5fff,
+    0x5f8700,
+    0x5f875f,
+    0x5f8787,
+    0x5f87af,
+    0x5f87d7,
+    0x5f87ff,
+    0x5faf00,
+    0x5faf5f,
+    0x5faf87,
+    0x5fafaf,
+    0x5fafd7,
+    0x5fafff,
+    0x5fd700,
+    0x5fd75f,
+    0x5fd787,
+    0x5fd7af,
+    0x5fd7d7,
+    0x5fd7ff,
+    0x5fff00,
+    0x5fff5f,
+    0x5fff87,
+    0x5fffaf,
+    0x5fffd7,
+    0x5fffff,
+    0x870000,
+    0x87005f,
+    0x870087,
+    0x8700af,
+    0x8700d7,
+    0x8700ff,
+    0x875f00,
+    0x875f5f,
+    0x875f87,
+    0x875faf,
+    0x875fd7,
+    0x875fff,
+    0x878700,
+    0x87875f,
+    0x878787,
+    0x8787af,
+    0x8787d7,
+    0x8787ff,
+    0x87af00,
+    0x87af5f,
+    0x87af87,
+    0x87afaf,
+    0x87afd7,
+    0x87afff,
+    0x87d700,
+    0x87d75f,
+    0x87d787,
+    0x87d7af,
+    0x87d7d7,
+    0x87d7ff,
+    0x87ff00,
+    0x87ff5f,
+    0x87ff87,
+    0x87ffaf,
+    0x87ffd7,
+    0x87ffff,
+    0xaf0000,
+    0xaf005f,
+    0xaf0087,
+    0xaf00af,
+    0xaf00d7,
+    0xaf00ff,
+    0xaf5f00,
+    0xaf5f5f,
+    0xaf5f87,
+    0xaf5faf,
+    0xaf5fd7,
+    0xaf5fff,
+    0xaf8700,
+    0xaf875f,
+    0xaf8787,
+    0xaf87af,
+    0xaf87d7,
+    0xaf87ff,
+    0xafaf00,
+    0xafaf5f,
+    0xafaf87,
+    0xafafaf,
+    0xafafd7,
+    0xafafff,
+    0xafd700,
+    0xafd75f,
+    0xafd787,
+    0xafd7af,
+    0xafd7d7,
+    0xafd7ff,
+    0xafff00,
+    0xafff5f,
+    0xafff87,
+    0xafffaf,
+    0xafffd7,
+    0xafffff,
+    0xd70000,
+    0xd7005f,
+    0xd70087,
+    0xd700af,
+    0xd700d7,
+    0xd700ff,
+    0xd75f00,
+    0xd75f5f,
+    0xd75f87,
+    0xd75faf,
+    0xd75fd7,
+    0xd75fff,
+    0xd78700,
+    0xd7875f,
+    0xd78787,
+    0xd787af,
+    0xd787d7,
+    0xd787ff,
+    0xd7af00,
+    0xd7af5f,
+    0xd7af87,
+    0xd7afaf,
+    0xd7afd7,
+    0xd7afff,
+    0xd7d700,
+    0xd7d75f,
+    0xd7d787,
+    0xd7d7af,
+    0xd7d7d7,
+    0xd7d7ff,
+    0xd7ff00,
+    0xd7ff5f,
+    0xd7ff87,
+    0xd7ffaf,
+    0xd7ffd7,
+    0xd7ffff,
+    0xff0000,
+    0xff005f,
+    0xff0087,
+    0xff00af,
+    0xff00d7,
+    0xff00ff,
+    0xff5f00,
+    0xff5f5f,
+    0xff5f87,
+    0xff5faf,
+    0xff5fd7,
+    0xff5fff,
+    0xff8700,
+    0xff875f,
+    0xff8787,
+    0xff87af,
+    0xff87d7,
+    0xff87ff,
+    0xffaf00,
+    0xffaf5f,
+    0xffaf87,
+    0xffafaf,
+    0xffafd7,
+    0xffafff,
+    0xffd700,
+    0xffd75f,
+    0xffd787,
+    0xffd7af,
+    0xffd7d7,
+    0xffd7ff,
+    0xffff00,
+    0xffff5f,
+    0xffff87,
+    0xffffaf,
+    0xffffd7,
+    0xffffff,
+    0x080808,
+    0x121212,
+    0x1c1c1c,
+    0x262626,
+    0x303030,
+    0x3a3a3a,
+    0x444444,
+    0x4e4e4e,
+    0x585858,
+    0x626262,
+    0x6c6c6c,
+    0x767676,
+    0x808080,
+    0x8a8a8a,
+    0x949494,
+    0x9e9e9e,
+    0xa8a8a8,
+    0xb2b2b2,
+    0xbcbcbc,
+    0xc6c6c6,
+    0xd0d0d0,
+    0xdadada,
+    0xe4e4e4,
+    0xeeeeee,
+};
 
 struct Grid grid_create(size_t width, size_t height) {
     size_t size = width * height;
@@ -18,8 +274,8 @@ struct Grid grid_create(size_t width, size_t height) {
         .background_colors = malloc(size * sizeof(uint32_t)),
         .foreground_colors = malloc(size * sizeof(uint32_t)),
 
-        .current_background_color = GRID_BACKGROUND_COLOR_DEFAULT,
-        .current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT,
+        .current_background_color = GRID_COLOR_BACKGROUND_DEFAULT,
+        .current_foreground_color = GRID_COLOR_FOREGROUND_DEFAULT,
     };
     assert(grid.data);
     assert(grid.are_rows_dirty);
@@ -71,8 +327,8 @@ void grid_resize(struct Grid *grid, size_t width, size_t height) {
             }
 
             grid->data[i] = ' ';
-            grid->background_colors[i] = GRID_BACKGROUND_COLOR_DEFAULT;
-            grid->foreground_colors[i] = GRID_FOREGROUND_COLOR_DEFAULT;
+            grid->background_colors[i] = GRID_COLOR_BACKGROUND_DEFAULT;
+            grid->foreground_colors[i] = GRID_COLOR_FOREGROUND_DEFAULT;
         }
     }
 
@@ -93,8 +349,11 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
 void grid_scroll_down(struct Grid *grid) {
     grid->are_rows_dirty[grid->cursor_y] = true;
 
-    memmove(&grid->data[0], &grid->data[grid->width], (grid->size - grid->width) * sizeof(char));
-    memmove(&grid->are_rows_dirty[0], &grid->are_rows_dirty[1], (grid->height - 1) * sizeof(bool));
+    size_t preserved_tile_count = grid->size - grid->width;
+    memmove(grid->data, grid->data + grid->width, preserved_tile_count * sizeof(char));
+    memmove(grid->background_colors, grid->background_colors + grid->width, preserved_tile_count * sizeof(uint32_t));
+    memmove(grid->foreground_colors, grid->foreground_colors + grid->width, preserved_tile_count * sizeof(uint32_t));
+    memmove(grid->are_rows_dirty, grid->are_rows_dirty + 1, (grid->height - 1) * sizeof(bool));
 
     for (size_t i = 0; i < grid->width; i++) {
         grid_set_char(grid, i, grid->height - 1, ' ');
@@ -141,10 +400,56 @@ void grid_swap_current_colors(struct Grid *grid) {
     grid->current_foreground_color = old_background_color;
 }
 
+uint32_t grid_color_to_bright(uint32_t color) {
+    switch (color) {
+        case GRID_COLOR_BLACK:
+            return GRID_COLOR_BRIGHT_BLACK;
+        case GRID_COLOR_RED:
+            return GRID_COLOR_BRIGHT_RED;
+        case GRID_COLOR_GREEN:
+            return GRID_COLOR_BRIGHT_GREEN;
+        case GRID_COLOR_YELLOW:
+            return GRID_COLOR_BRIGHT_YELLOW;
+        case GRID_COLOR_BLUE:
+            return GRID_COLOR_BRIGHT_BLUE;
+        case GRID_COLOR_MAGENTA:
+            return GRID_COLOR_BRIGHT_MAGENTA;
+        case GRID_COLOR_CYAN:
+            return GRID_COLOR_BRIGHT_CYAN;
+        case GRID_COLOR_WHITE:
+            return GRID_COLOR_BRIGHT_WHITE;
+    }
+
+    return color;
+}
+
+uint32_t grid_color_to_non_bright(uint32_t color) {
+    switch (color) {
+        case GRID_COLOR_BRIGHT_BLACK:
+            return GRID_COLOR_BLACK;
+        case GRID_COLOR_BRIGHT_RED:
+            return GRID_COLOR_RED;
+        case GRID_COLOR_BRIGHT_GREEN:
+            return GRID_COLOR_GREEN;
+        case GRID_COLOR_BRIGHT_YELLOW:
+            return GRID_COLOR_YELLOW;
+        case GRID_COLOR_BRIGHT_BLUE:
+            return GRID_COLOR_BLUE;
+        case GRID_COLOR_BRIGHT_MAGENTA:
+            return GRID_COLOR_MAGENTA;
+        case GRID_COLOR_BRIGHT_CYAN:
+            return GRID_COLOR_CYAN;
+        case GRID_COLOR_BRIGHT_WHITE:
+            return GRID_COLOR_WHITE;
+    }
+
+    return color;
+}
+
 void grid_reset_formatting(struct Grid *grid) {
     grid->are_colors_swapped = false;
-    grid->current_background_color = GRID_BACKGROUND_COLOR_DEFAULT;
-    grid->current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+    grid->current_background_color = GRID_COLOR_BACKGROUND_DEFAULT;
+    grid->current_foreground_color = GRID_COLOR_FOREGROUND_DEFAULT;
 }
 
 // Returns true if an escape sequence was parsed.
@@ -295,25 +600,15 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
 
                 if (parsed_number_count == 0) {
                     grid_reset_formatting(grid);
-                }
-                // Set foreground RGB.
-                else if (parsed_numbers[0] == 38 && parsed_numbers[1] == 2) {
-                    uint32_t r = parsed_numbers[2];
-                    uint32_t g = parsed_numbers[3];
-                    uint32_t b = parsed_numbers[4];
-                    *foreground_color = (r << 16) | (g << 8) | b;
-                }
-                // Set background RGB.
-                else if (parsed_numbers[0] == 48 && parsed_numbers[1] == 2) {
-                    uint32_t r = parsed_numbers[2];
-                    uint32_t g = parsed_numbers[3];
-                    uint32_t b = parsed_numbers[4];
-                    *background_color = (r << 16) | (g << 8) | b;
                 } else {
                     for (size_t i = 0; i < parsed_number_count; i++) {
                         switch (parsed_numbers[i]) {
                             case 0: {
                                 grid_reset_formatting(grid);
+                                break;
+                            }
+                            case 1: {
+                                *foreground_color = grid_color_to_bright(*foreground_color);
                                 break;
                             }
                             case 7: {
@@ -323,6 +618,10 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                                 }
                                 break;
                             }
+                            case 22: {
+                                *foreground_color = grid_color_to_non_bright(*foreground_color);
+                                break;
+                            }
                             case 27: {
                                 if (grid->are_colors_swapped) {
                                     grid_swap_current_colors(grid);
@@ -330,30 +629,174 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                                 }
                                 break;
                             }
-                            case 30:
-                            case 31:
-                            case 32:
-                            case 33:
-                            case 34:
-                            case 35:
-                            case 36:
-                            case 37:
-                            case 38:
-                            case 39: {
-                                *foreground_color = GRID_FOREGROUND_COLOR_DEFAULT;
+                            case 30: {
+                                *foreground_color = GRID_COLOR_BLACK;
                                 break;
                             }
-                            case 40:
-                            case 41:
-                            case 42:
-                            case 43:
-                            case 44:
-                            case 45:
-                            case 46:
-                            case 47:
-                            case 48:
+                            case 31: {
+                                *foreground_color = GRID_COLOR_RED;
+                                break;
+                            }
+                            case 32: {
+                                *foreground_color = GRID_COLOR_GREEN;
+                                break;
+                            }
+                            case 33: {
+                                *foreground_color = GRID_COLOR_YELLOW;
+                                break;
+                            }
+                            case 34: {
+                                *foreground_color = GRID_COLOR_BLUE;
+                                break;
+                            }
+                            case 35: {
+                                *foreground_color = GRID_COLOR_MAGENTA;
+                                break;
+                            }
+                            case 36: {
+                                *foreground_color = GRID_COLOR_CYAN;
+                                break;
+                            }
+                            case 37: {
+                                *foreground_color = GRID_COLOR_WHITE;
+                                break;
+                            }
+                            case 38: {
+                                if (i + 2 < parsed_number_count && parsed_numbers[i + 1] == 5) {
+                                    size_t color_table_i = parsed_numbers[i + 2] % 256;
+                                    *foreground_color = color_table[color_table_i];
+                                    break;
+                                }
+
+                                if (i + 4 >= parsed_number_count || parsed_numbers[i + 1] != 2) {
+                                    break;
+                                }
+
+                                uint32_t r = parsed_numbers[i + 2];
+                                uint32_t g = parsed_numbers[i + 3];
+                                uint32_t b = parsed_numbers[i + 4];
+                                *foreground_color = (r << 16) | (g << 8) | b;
+                                break;
+                            }
+                            case 39: {
+                                *foreground_color = GRID_COLOR_FOREGROUND_DEFAULT;
+                                break;
+                            }
+                            case 40: {
+                                *background_color = GRID_COLOR_BLACK;
+                                break;
+                            }
+                            case 41: {
+                                *background_color = GRID_COLOR_RED;
+                                break;
+                            }
+                            case 42: {
+                                *background_color = GRID_COLOR_GREEN;
+                                break;
+                            }
+                            case 43: {
+                                *background_color = GRID_COLOR_YELLOW;
+                                break;
+                            }
+                            case 44: {
+                                *background_color = GRID_COLOR_BLUE;
+                                break;
+                            }
+                            case 45: {
+                                *background_color = GRID_COLOR_MAGENTA;
+                                break;
+                            }
+                            case 46: {
+                                *background_color = GRID_COLOR_CYAN;
+                                break;
+                            }
+                            case 47: {
+                                *background_color = GRID_COLOR_WHITE;
+                                break;
+                            }
+                            case 48: {
+                                if (i + 2 < parsed_number_count && parsed_numbers[i + 1] == 5) {
+                                    size_t color_table_i = parsed_numbers[i + 2] % 256;
+                                    *background_color = color_table[color_table_i];
+                                    break;
+                                }
+
+                                if (i + 4 >= parsed_number_count || parsed_numbers[i + 1] != 2) {
+                                    break;
+                                }
+
+                                uint32_t r = parsed_numbers[i + 2];
+                                uint32_t g = parsed_numbers[i + 3];
+                                uint32_t b = parsed_numbers[i + 4];
+                                *background_color = (r << 16) | (g << 8) | b;
+                                break;
+                            }
                             case 49: {
-                                *background_color = GRID_BACKGROUND_COLOR_DEFAULT;
+                                *background_color = GRID_COLOR_BACKGROUND_DEFAULT;
+                                break;
+                            }
+                            case 90: {
+                                *foreground_color = GRID_COLOR_BRIGHT_BLACK;
+                                break;
+                            }
+                            case 91: {
+                                *foreground_color = GRID_COLOR_BRIGHT_RED;
+                                break;
+                            }
+                            case 92: {
+                                *foreground_color = GRID_COLOR_BRIGHT_GREEN;
+                                break;
+                            }
+                            case 93: {
+                                *foreground_color = GRID_COLOR_BRIGHT_YELLOW;
+                                break;
+                            }
+                            case 94: {
+                                *foreground_color = GRID_COLOR_BRIGHT_BLUE;
+                                break;
+                            }
+                            case 95: {
+                                *foreground_color = GRID_COLOR_BRIGHT_MAGENTA;
+                                break;
+                            }
+                            case 96: {
+                                *foreground_color = GRID_COLOR_BRIGHT_CYAN;
+                                break;
+                            }
+                            case 97: {
+                                *foreground_color = GRID_COLOR_BRIGHT_WHITE;
+                                break;
+                            }
+                            case 100: {
+                                *background_color = GRID_COLOR_BRIGHT_BLACK;
+                                break;
+                            }
+                            case 101: {
+                                *background_color = GRID_COLOR_BRIGHT_RED;
+                                break;
+                            }
+                            case 102: {
+                                *background_color = GRID_COLOR_BRIGHT_GREEN;
+                                break;
+                            }
+                            case 103: {
+                                *background_color = GRID_COLOR_BRIGHT_YELLOW;
+                                break;
+                            }
+                            case 104: {
+                                *background_color = GRID_COLOR_BRIGHT_BLUE;
+                                break;
+                            }
+                            case 105: {
+                                *background_color = GRID_COLOR_BRIGHT_MAGENTA;
+                                break;
+                            }
+                            case 106: {
+                                *background_color = GRID_COLOR_BRIGHT_CYAN;
+                                break;
+                            }
+                            case 107: {
+                                *background_color = GRID_COLOR_BRIGHT_WHITE;
                                 break;
                             }
                         }
@@ -463,6 +906,9 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                         return true;
                     }
 
+                    // TODO:
+                    puts("missed J0");
+
                     break;
                 }
                 case 1: {
@@ -477,6 +923,9 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
 
                         return true;
                     }
+
+                    // TODO:
+                    puts("missed K1");
 
                     break;
                 }
@@ -511,8 +960,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
     return false;
 }
 
-void grid_draw_character(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale, float r, float g, float b) {
+void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
+    float scale, float r, float g, float b) {
 
     char character = grid->data[x + y * grid->width];
     if (character == ' ') {
@@ -555,15 +1004,17 @@ void grid_draw_box(
 }
 
 void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
-
     size_t i = x + y * grid->width;
     struct Color background_color = color_from_hex(grid->background_colors[i]);
     grid_draw_box(grid, sprite_batch, x, z, scale, background_color.r, background_color.g, background_color.b);
     struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
-    grid_draw_character(grid, sprite_batch, x, y, z + 1, scale, foreground_color.r, foreground_color.g, foreground_color.b);
+    grid_draw_character(
+        grid, sprite_batch, x, y, z + 1, scale, foreground_color.r, foreground_color.g, foreground_color.b);
 }
 
-void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
+void grid_draw_cursor(
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
+
     grid_draw_box(grid, sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
     grid_draw_character(grid, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
 }
