@@ -19,6 +19,7 @@ set (
     src/pseudo_console.c src/pseudo_console.h
     src/graphics/mesh.c src/graphics/mesh.h
     src/graphics/resources.c src/graphics/resources.h
+    src/graphics/renderer.c src/graphics/renderer.h
     src/graphics/sprite_batch.c src/graphics/sprite_batch.h
 )
 

@@ -33,6 +33,7 @@ struct Grid {
 };
 
 struct Grid grid_create(size_t width, size_t height);
+void grid_resize(struct Grid *grid, size_t width, size_t height);
 void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character);
 void grid_scroll_down(struct Grid *grid);
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y);

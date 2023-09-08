@@ -7,7 +7,10 @@ void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, int32_t h
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     window->width = width;
     window->height = height;
-    window->was_resized = true;
+    window->did_resize = true;
+
+    renderer_resize_viewport(window->renderer, width, height);
+    renderer_draw(window->renderer, window->grid, height, glfw_window);
 }
 
 void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
@@ -147,6 +150,8 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
         .glfw_window = glfw_window,
         .input = input_create(),
         .typed_chars = list_create_uint8_t(16),
+        .width = width,
+        .height = height,
     };
     glfwSetWindowUserPointer(glfw_window, (void *)&window);
 
@@ -155,13 +160,18 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
         exit(-1);
     }
 
-    glfwSetFramebufferSizeCallback(glfw_window, framebuffer_size_callback);
-    framebuffer_size_callback(glfw_window, width, height);
     glfwSetKeyCallback(glfw_window, key_callback);
     glfwSetMouseButtonCallback(glfw_window, mouse_button_callback);
     glfwSetCharCallback(glfw_window, character_callback);
 
     return window;
+}
+
+void window_setup_resize_callback(struct Window *window, struct Grid *grid, struct Renderer* renderer) {
+    window->grid = grid;
+    window->renderer = renderer;
+    glfwSetFramebufferSizeCallback(window->glfw_window, framebuffer_size_callback);
+    framebuffer_size_callback(window->glfw_window, window->width, window->height);
 }
 
 void window_update(struct Window *window) {

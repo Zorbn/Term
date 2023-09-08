@@ -3,10 +3,8 @@
 #include "window.h"
 #include "grid.h"
 #include "text_buffer.h"
-#include "graphics/resources.h"
-#include "graphics/sprite_batch.h"
 
-#include <cglm/struct.h>
+#include "graphics/renderer.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
@@ -28,46 +26,33 @@
  * Scrollback,
  */
 
-const float sky_color_r = 50.0f / 255.0f;
-const float sky_color_g = 74.0f / 255.0f;
-const float sky_color_b = 117.0f / 255.0f;
-
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
-
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-
-    uint32_t program_2d = program_create("assets/shader_2d.vert", "assets/shader_2d.frag");
-
-    // TODO: Add texture_bind and texture_destroy
-    struct Texture texture_atlas_2d = texture_create("assets/texture_atlas.png");
-
-    mat4s projection_matrix_2d;
-
-    int32_t projection_matrix_location_2d = glGetUniformLocation(program_2d, "projection_matrix");
-
-    struct TextBuffer data = text_buffer_create();
 
     const int32_t grid_width = window.width / 6;
     const int32_t grid_height = window.height / 14;
     window.pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
     printf("Console result: %ld\n", window.pseudo_console.result);
+
     struct Grid grid = grid_create(grid_width, grid_height);
-    struct SpriteBatch sprite_batch = sprite_batch_create(grid.size * 2);
+    struct TextBuffer text_buffer = text_buffer_create();
+    struct Renderer renderer = renderer_create(&grid);
+    window_setup_resize_callback(&window, &grid, &renderer);
 
     double last_frame_time = glfwGetTime();
     float fps_print_timer = 0.0f;
 
-    float elapsed_time = 0.0f;
-
     while (!glfwWindowShouldClose(window.glfw_window)) {
-        // Update:
-        if (window.was_resized) {
-            glViewport(0, 0, window.width, window.height);
-            projection_matrix_2d = glms_ortho(0.0f, (float)window.width, 0.0f, (float)window.height, -100.0, 100.0);
+        if (window.did_resize) {
+            // TODO: Don't hard code font glyph size anywhere.
+            const size_t new_grid_width = window.width / 6;
+            const size_t new_grid_height = window.height / 14;
 
-            window.was_resized = false;
+            pseudo_console_resize(&window.pseudo_console, new_grid_width, new_grid_height);
+            grid_resize(window.grid, new_grid_width, new_grid_height);
+            renderer_resize(&renderer, &grid);
+
+            window.did_resize = false;
         }
 
         double current_frame_time = glfwGetTime();
@@ -78,11 +63,8 @@ int main() {
 
         if (fps_print_timer > 1.0f) {
             fps_print_timer = 0.0f;
-            // printf("fps: %f\n", 1.0f / delta_time);
+            printf("fps: %f\n", 1.0f / delta_time);
         }
-
-        elapsed_time += delta_time;
-        float time_of_day = 0.5f * (sin(elapsed_time * 0.1f) + 1.0f);
 
         CHAR *typed_chars = (CHAR *)window.typed_chars.data;
         WriteFile(window.pseudo_console.input, typed_chars, window.typed_chars.length, NULL, NULL);
@@ -96,34 +78,34 @@ int main() {
         PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL);
 
         if (bytes_available > 0) {
-            BOOL did_read = ReadFile(window.pseudo_console.output, data.data, TEXT_BUFFER_CAPACITY, &data.length, NULL);
+            BOOL did_read = ReadFile(window.pseudo_console.output, text_buffer.data, TEXT_BUFFER_CAPACITY, &text_buffer.length, NULL);
             if (did_read) {
-                for (size_t i = 0; i < data.length;) {
+                for (size_t i = 0; i < text_buffer.length;) {
                     // Skip multi-byte text. Replace it with a box character.
-                    if (data.data[i] & 0x80) {
+                    if (text_buffer.data[i] & 0x80) {
                         size_t j = 0;
-                        while (j < 4 && ((data.data[i] << j) & 0x80)) {
+                        while (j < 4 && ((text_buffer.data[i] << j) & 0x80)) {
                             j++;
                         }
                         i += j - 1;
-                        data.data[i] = 127;
+                        text_buffer.data[i] = 127;
                     }
 
                     // Check for escape sequences.
                     // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n>
                     // is omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they
                     // are assumed to be 1.
-                    if (grid_parse_escape_sequence(&grid, &data, &i, &window)) {
+                    if (grid_parse_escape_sequence(&grid, &text_buffer, &i, &window)) {
                         continue;
                     }
 
                     // Parse escape characters:
-                    if (text_buffer_match_char(&data, '\r', &i)) {
+                    if (text_buffer_match_char(&text_buffer, '\r', &i)) {
                         grid_cursor_move_to(&grid, 0, grid.cursor_y);
                         continue;
                     }
 
-                    if (text_buffer_match_char(&data, '\n', &i)) {
+                    if (text_buffer_match_char(&text_buffer, '\n', &i)) {
                         if (grid.cursor_y == grid.height - 1) {
                             grid_scroll_down(&grid);
                         } else {
@@ -132,7 +114,7 @@ int main() {
                         continue;
                     }
 
-                    if (text_buffer_match_char(&data, '\b', &i)) {
+                    if (text_buffer_match_char(&text_buffer, '\b', &i)) {
                         grid_cursor_move(&grid, -1, 0);
                         continue;
                     }
@@ -142,7 +124,7 @@ int main() {
                         grid.cursor_y++;
                     }
 
-                    grid_set_char(&grid, grid.cursor_x, grid.cursor_y, data.data[i]);
+                    grid_set_char(&grid, grid.cursor_x, grid.cursor_y, text_buffer.data[i]);
                     grid.cursor_x++;
 
                     i++;
@@ -150,45 +132,16 @@ int main() {
             }
         }
 
-        // Draw:
-        sprite_batch_begin(&sprite_batch);
-
-        for (size_t y = 0; y < grid.height; y++) {
-            for (size_t x = 0; x < grid.width; x++) {
-                grid_draw_tile(&grid, &sprite_batch, x, y, 0, window.height);
-            }
-        }
-
-        if (grid.show_cursor) {
-            grid_draw_cursor(&grid, &sprite_batch, grid.cursor_x, grid.cursor_y, 2, window.height);
-        }
-
-        sprite_batch_end(&sprite_batch, texture_atlas_2d.width, texture_atlas_2d.height);
-
-        glClearColor(sky_color_r * time_of_day, sky_color_g * time_of_day, sky_color_b * time_of_day, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glUseProgram(program_2d);
-        glUniformMatrix4fv(projection_matrix_location_2d, 1, GL_FALSE, (const float *)&projection_matrix_2d);
-        glBindTexture(GL_TEXTURE_2D, texture_atlas_2d.id);
-        sprite_batch_draw(&sprite_batch);
-
+        renderer_draw(&renderer, &grid, window.height, window.glfw_window);
         window_update(&window);
-
-        glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
 
     pseudo_console_destroy(&window.pseudo_console);
-
-    grid_destroy(&grid);
-    text_buffer_destroy(&data);
-
-    sprite_batch_destroy(&sprite_batch);
-
-    glDeleteTextures(1, &texture_atlas_2d.id);
-
     window_destroy(&window);
+    grid_destroy(&grid);
+    text_buffer_destroy(&text_buffer);
+    renderer_destroy(&renderer);
 
     printf("Found leaks: %s\n", _CrtDumpMemoryLeaks() ? "true" : "false");
 

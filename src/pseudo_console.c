@@ -113,6 +113,10 @@ struct PseudoConsole pseudo_console_create(COORD size) {
     };
 }
 
+void pseudo_console_resize(struct PseudoConsole *pseudo_console, size_t width, size_t height) {
+    ResizePseudoConsole(pseudo_console->hpc, (COORD){width, height});
+}
+
 void pseudo_console_destroy(struct PseudoConsole *pseudo_console) {
     ClosePseudoConsole(pseudo_console->hpc);
 }

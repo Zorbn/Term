@@ -28,6 +28,50 @@ struct Grid grid_create(size_t width, size_t height) {
     return grid;
 }
 
+void grid_resize(struct Grid *grid, size_t width, size_t height) {
+    grid->size = width * height;
+
+    size_t old_width = grid->width;
+    grid->width = width;
+    size_t old_height = grid->height;
+    grid->height = height;
+
+    char *old_data = grid->data;
+    grid->data = malloc(grid->size * sizeof(char));
+    assert(grid->data);
+
+    uint32_t *old_background_colors = grid->background_colors;
+    grid->background_colors = malloc(grid->size * sizeof(uint32_t));
+    assert(grid->background_colors);
+
+    uint32_t *old_foreground_colors = grid->foreground_colors;
+    grid->foreground_colors = malloc(grid->size * sizeof(uint32_t));
+    assert(grid->foreground_colors);
+
+    for (size_t y = 0; y < grid->height; y++) {
+        for (size_t x = 0; x < grid->width; x++) {
+            size_t i = x + y * grid->width;
+
+            if (x < old_width && y < old_height) {
+                size_t old_i = x + y * old_width;
+                grid->data[i] = old_data[old_i];
+                grid->background_colors[i] = old_background_colors[old_i];
+                grid->foreground_colors[i] = old_foreground_colors[old_i];
+
+                continue;
+            }
+
+            grid->data[i] = ' ';
+            grid->background_colors[i] = GRID_BACKGROUND_COLOR_DEFAULT;
+            grid->foreground_colors[i] = GRID_FOREGROUND_COLOR_DEFAULT;
+        }
+    }
+
+    free(old_data);
+    free(old_background_colors);
+    free(old_foreground_colors);
+}
+
 void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
     if (x < 0 || y < 0 || x >= grid->width || y >= grid->height) {
         return;
@@ -125,8 +169,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
         for (size_t title_length = 0; title_length < 255; title_length++) {
             size_t peek_i = *i + title_length;
             bool has_bel = text_buffer_match_char(data, '\x7', &peek_i);
-            bool has_terminator =
-                has_bel || (text_buffer_match_char(data, '\x1b', &peek_i) && text_buffer_match_char(data, '\x5c', &peek_i));
+            bool has_terminator = has_bel || (text_buffer_match_char(data, '\x1b', &peek_i) &&
+                                                 text_buffer_match_char(data, '\x5c', &peek_i));
             if (!has_terminator) {
                 continue;
             }
@@ -250,8 +294,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
                     uint32_t g = parsed_numbers[3];
                     uint32_t b = parsed_numbers[4];
                     *background_color = (r << 16) | (g << 8) | b;
-                }
-                else {
+                } else {
                     for (size_t i = 0; i < parsed_number_count; i++) {
                         switch (parsed_numbers[i]) {
                             case 0: {
