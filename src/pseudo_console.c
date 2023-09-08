@@ -1,28 +1,23 @@
 #include "pseudo_console.h"
 
-HRESULT PrepareStartupInformation(HPCON hpc, STARTUPINFOEX *psi) {
-    // Prepare Startup Information structure
+HRESULT init_startup_information(HPCON hpc, STARTUPINFOEX *psi) {
     STARTUPINFOEX si;
     ZeroMemory(&si, sizeof(si));
     si.StartupInfo.cb = sizeof(STARTUPINFOEX);
 
-    // Discover the size required for the list
-    size_t bytesRequired;
-    InitializeProcThreadAttributeList(NULL, 1, 0, &bytesRequired);
+    size_t bytes_required;
+    InitializeProcThreadAttributeList(NULL, 1, 0, &bytes_required);
 
-    // Allocate memory to represent the list
-    si.lpAttributeList = (PPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, bytesRequired);
+    si.lpAttributeList = (PPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, bytes_required);
     if (!si.lpAttributeList) {
         return E_OUTOFMEMORY;
     }
 
-    // Initialize the list memory location
-    if (!InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &bytesRequired)) {
+    if (!InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &bytes_required)) {
         HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
-    // Set the pseudoconsole information into the list
     if (!UpdateProcThreadAttribute(
             si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, hpc, sizeof(hpc), NULL, NULL)) {
         HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
@@ -34,19 +29,16 @@ HRESULT PrepareStartupInformation(HPCON hpc, STARTUPINFOEX *psi) {
     return S_OK;
 }
 
-PseudoConsole SetUpPseudoConsole(COORD size) {
+struct PseudoConsole pseudo_console_create(COORD size) {
     HRESULT hr = S_OK;
 
-    // - Close these after CreateProcess of child application with
-    // pseudoconsole object.
-    HANDLE inputReadSide, outputWriteSide;
+    // Closed after creating the child process.
+    HANDLE input_read, output_write;
+    // Used to communicate with the child process.
+    HANDLE output_read, input_write;
 
-    // - Hold onto these and use them for communication with the child
-    // through the pseudoconsole.
-    HANDLE outputReadSide, inputWriteSide;
-
-    if (!CreatePipe(&inputReadSide, &inputWriteSide, NULL, 0)) {
-        return (PseudoConsole){
+    if (!CreatePipe(&input_read, &input_write, NULL, 0)) {
+        return (struct PseudoConsole){
             HRESULT_FROM_WIN32(GetLastError()),
             NULL,
             NULL,
@@ -55,8 +47,8 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
         };
     }
 
-    if (!CreatePipe(&outputReadSide, &outputWriteSide, NULL, 0)) {
-        return (PseudoConsole){
+    if (!CreatePipe(&output_read, &output_write, NULL, 0)) {
+        return (struct PseudoConsole){
             HRESULT_FROM_WIN32(GetLastError()),
             NULL,
             NULL,
@@ -66,9 +58,9 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
     }
 
     HPCON hpc;
-    hr = CreatePseudoConsole(size, inputReadSide, outputWriteSide, 0, &hpc);
+    hr = CreatePseudoConsole(size, input_read, output_write, 0, &hpc);
     if (FAILED(hr)) {
-        return (PseudoConsole){
+        return (struct PseudoConsole){
             hr,
             NULL,
             NULL,
@@ -77,17 +69,16 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
         };
     }
 
-    STARTUPINFOEX siEx;
-    PrepareStartupInformation(hpc, &siEx);
+    STARTUPINFOEX si_ex;
+    init_startup_information(hpc, &si_ex);
 
-    PCWSTR childApplication = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe";
+    PCWSTR child_application = L"C:\\Program Files\\PowerShell\\7\\pwsh.exe";
 
-    // Create mutable text string for CreateProcessW command line string.
-    const size_t charsRequired = wcslen(childApplication) + 1; // +1 null terminator
-    PWSTR cmdLineMutable = (PWSTR)HeapAlloc(GetProcessHeap(), 0, sizeof(wchar_t) * charsRequired);
+    const size_t child_application_length = wcslen(child_application) + 1;
+    PWSTR command = (PWSTR)HeapAlloc(GetProcessHeap(), 0, sizeof(wchar_t) * child_application_length);
 
-    if (!cmdLineMutable) {
-        return (PseudoConsole){
+    if (!command) {
+        return (struct PseudoConsole){
             E_OUTOFMEMORY,
             NULL,
             NULL,
@@ -96,16 +87,15 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
         };
     }
 
-    wcscpy_s(cmdLineMutable, charsRequired, childApplication);
+    wcscpy_s(command, child_application_length, child_application);
 
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
 
-    // Call CreateProcess
-    if (!CreateProcessW(NULL, cmdLineMutable, NULL, NULL, FALSE, EXTENDED_STARTUPINFO_PRESENT, NULL, NULL,
-            (LPSTARTUPINFOW)(&siEx.StartupInfo), &pi)) {
-        HeapFree(GetProcessHeap(), 0, cmdLineMutable);
-        return (PseudoConsole){
+    if (!CreateProcessW(NULL, command, NULL, NULL, FALSE, EXTENDED_STARTUPINFO_PRESENT, NULL, NULL,
+            (LPSTARTUPINFOW)(&si_ex.StartupInfo), &pi)) {
+        HeapFree(GetProcessHeap(), 0, command);
+        return (struct PseudoConsole){
             HRESULT_FROM_WIN32(GetLastError()),
             NULL,
             NULL,
@@ -114,11 +104,15 @@ PseudoConsole SetUpPseudoConsole(COORD size) {
         };
     }
 
-    return (PseudoConsole){
+    return (struct PseudoConsole){
         hr,
         hpc,
         pi.hProcess,
-        outputReadSide,
-        inputWriteSide,
+        output_read,
+        input_write,
     };
+}
+
+void pseudo_console_destroy(struct PseudoConsole *pseudo_console) {
+    ClosePseudoConsole(pseudo_console->hpc);
 }

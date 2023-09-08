@@ -4,13 +4,14 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-typedef struct {
+struct PseudoConsole {
     HRESULT result;
     HPCON hpc;
     HANDLE h_process;
     HANDLE output, input;
-} PseudoConsole;
+};
 
-PseudoConsole SetUpPseudoConsole(COORD size);
+struct PseudoConsole pseudo_console_create(COORD size);
+void pseudo_console_destroy(struct PseudoConsole *pseudo_console);
 
 #endif

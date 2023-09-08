@@ -22,7 +22,7 @@ struct Window {
     struct Input input;
     // TODO: Move to input struct:
     struct List_uint8_t typed_chars;
-    PseudoConsole console; // TODO: Is this going to stay here? If it is initialize it in window_create.
+    struct PseudoConsole pseudo_console; // TODO: Is this going to stay here? If it is initialize it in window_create.
 };
 
 struct Window window_create(char *title, int32_t width, int32_t height);
