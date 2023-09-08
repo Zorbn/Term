@@ -8,9 +8,10 @@ out vec3 vertex_color;
 out vec3 vertex_tex_coord;
 
 uniform mat4 projection_matrix;
+uniform float offset_y;
 
 void main() {
-    gl_Position = projection_matrix * vec4(in_position, 1.0);
+    gl_Position = projection_matrix * vec4(in_position + vec3(0.0f, offset_y, 0.0f), 1.0);
     vertex_color = in_color;
     vertex_tex_coord = in_tex_coord;
 }

@@ -8,17 +8,21 @@
 #include <cglm/struct.h>
 
 struct Renderer {
-    struct SpriteBatch sprite_batch;
+    struct SpriteBatch *sprite_batches;
+    size_t sprite_batch_count;
+
     struct Texture texture_atlas;
     mat4s projection_matrix;
     uint32_t program;
     int32_t projection_matrix_location;
+    int32_t offset_y_location;
 };
 
 struct Renderer renderer_create(struct Grid *grid);
 void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, GLFWwindow *glfw_window);
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height);
 void renderer_resize(struct Renderer *renderer, struct Grid *grid);
+void renderer_scroll_down(struct Renderer *renderer);
 void renderer_destroy(struct Renderer *renderer);
 
 #endif

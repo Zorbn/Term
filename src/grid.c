@@ -9,6 +9,7 @@ struct Grid grid_create(size_t width, size_t height) {
     size_t size = width * height;
     struct Grid grid = (struct Grid){
         .data = malloc(size * sizeof(char)),
+        .are_rows_dirty = malloc(height * sizeof(bool)),
         .width = width,
         .height = height,
         .size = size,
@@ -20,6 +21,7 @@ struct Grid grid_create(size_t width, size_t height) {
         .current_foreground_color = GRID_FOREGROUND_COLOR_DEFAULT,
     };
     assert(grid.data);
+    assert(grid.are_rows_dirty);
 
     for (size_t i = 0; i < size; i++) {
         grid_set_char_i(&grid, i, ' ');
@@ -48,7 +50,13 @@ void grid_resize(struct Grid *grid, size_t width, size_t height) {
     grid->foreground_colors = malloc(grid->size * sizeof(uint32_t));
     assert(grid->foreground_colors);
 
+    free(grid->are_rows_dirty);
+    grid->are_rows_dirty = malloc(grid->height * sizeof(bool));
+    assert(grid->are_rows_dirty);
+
     for (size_t y = 0; y < grid->height; y++) {
+        grid->are_rows_dirty[y] = true;
+
         for (size_t x = 0; x < grid->width; x++) {
             size_t i = x + y * grid->width;
 
@@ -82,7 +90,10 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
 }
 
 void grid_scroll_down(struct Grid *grid) {
+    grid->are_rows_dirty[grid->cursor_y] = true;
+
     memmove(&grid->data[0], &grid->data[grid->width], (grid->size - grid->width) * sizeof(char));
+    memmove(&grid->are_rows_dirty[0], &grid->are_rows_dirty[1], (grid->height - 1) * sizeof(bool));
 
     for (size_t i = 0; i < grid->width; i++) {
         grid_set_char(grid, i, grid->height - 1, ' ');
@@ -95,11 +106,12 @@ void grid_cursor_save(struct Grid *grid) {
 }
 
 void grid_cursor_restore(struct Grid *grid) {
-    grid->cursor_x = grid->saved_cursor_x;
-    grid->cursor_y = grid->saved_cursor_y;
+    grid_cursor_move_to(grid, grid->saved_cursor_x, grid->saved_cursor_y);
 }
 
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
+    grid->are_rows_dirty[grid->cursor_y] = true;
+
     grid->cursor_x = x;
     grid->cursor_y = y;
 
@@ -114,6 +126,8 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
     if (grid->cursor_y >= grid->height) {
         grid->cursor_y = grid->height - 1;
     }
+
+    grid->are_rows_dirty[grid->cursor_y] = true;
 }
 
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
@@ -496,8 +510,8 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *data, size
     return false;
 }
 
-void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
-    int32_t origin_y, float r, float g, float b) {
+void grid_draw_character(
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float r, float g, float b) {
 
     char character = grid->data[x + y * grid->width];
     if (character == ' ') {
@@ -506,7 +520,6 @@ void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, in
 
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * 6,
-                                       .y = origin_y - (y + 1) * 14,
                                        .z = z,
                                        .width = 6,
                                        .height = 14,
@@ -521,12 +534,11 @@ void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, in
                                    });
 }
 
-void grid_draw_box(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
-    int32_t origin_y, float r, float g, float b) {
+void grid_draw_box(
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float r, float g, float b) {
 
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * 6,
-                                       .y = origin_y - (y + 1) * 14,
                                        .z = z,
                                        .width = 6,
                                        .height = 14,
@@ -541,25 +553,22 @@ void grid_draw_box(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t 
                                    });
 }
 
-void grid_draw_tile(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
+void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z) {
 
     size_t i = x + y * grid->width;
     struct Color background_color = color_from_hex(grid->background_colors[i]);
-    grid_draw_box(grid, sprite_batch, x, y, z, origin_y, background_color.r, background_color.g, background_color.b);
+    grid_draw_box(grid, sprite_batch, x, z, background_color.r, background_color.g, background_color.b);
     struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
-    grid_draw_character(
-        grid, sprite_batch, x, y, z + 1, origin_y, foreground_color.r, foreground_color.g, foreground_color.b);
+    grid_draw_character(grid, sprite_batch, x, y, z + 1, foreground_color.r, foreground_color.g, foreground_color.b);
 }
 
-void grid_draw_cursor(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, int32_t origin_y) {
-
-    grid_draw_box(grid, sprite_batch, x, y, z, origin_y, 1.0f, 1.0f, 1.0f);
-    grid_draw_character(grid, sprite_batch, x, y, z + 1, origin_y, 0.0f, 0.0f, 0.0f);
+void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z) {
+    grid_draw_box(grid, sprite_batch, x, z, 1.0f, 1.0f, 1.0f);
+    grid_draw_character(grid, sprite_batch, x, y, z + 1, 0.0f, 0.0f, 0.0f);
 }
 
 void grid_destroy(struct Grid *grid) {
+    free(grid->are_rows_dirty);
     free(grid->data);
 }
 

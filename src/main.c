@@ -107,9 +107,10 @@ int main() {
 
                     if (text_buffer_match_char(&text_buffer, '\n', &i)) {
                         if (grid.cursor_y == grid.height - 1) {
+                            renderer_scroll_down(&renderer);
                             grid_scroll_down(&grid);
                         } else {
-                            grid.cursor_y++;
+                            grid_cursor_move(&grid, 0, 1);
                         }
                         continue;
                     }
@@ -123,7 +124,6 @@ int main() {
                         grid.cursor_x = 0;
                         grid.cursor_y++;
                     }
-
                     grid_set_char(&grid, grid.cursor_x, grid.cursor_y, text_buffer.data[i]);
                     grid.cursor_x++;
 
