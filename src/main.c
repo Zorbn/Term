@@ -15,11 +15,6 @@
 #include <inttypes.h>
 
 /*
- * TODO:
- * Dynamic resizing.
- */
-
-/*
  * Missing features:
  * Mouse input,
  * Copy/paste,
@@ -75,9 +70,7 @@ int main() {
         }
 
         DWORD bytes_available;
-        PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL);
-
-        if (bytes_available > 0) {
+        while (PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
             BOOL did_read = ReadFile(window.pseudo_console.output, text_buffer.data, TEXT_BUFFER_CAPACITY, &text_buffer.length, NULL);
             if (did_read) {
                 for (size_t i = 0; i < text_buffer.length;) {
@@ -137,7 +130,7 @@ int main() {
         glfwPollEvents();
     }
 
-    pseudo_console_destroy(&window.pseudo_console);
+    pseudo_console_destroy(&window.pseudo_console, &text_buffer);
     window_destroy(&window);
     grid_destroy(&grid);
     text_buffer_destroy(&text_buffer);

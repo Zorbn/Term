@@ -568,8 +568,10 @@ void grid_draw_cursor(struct Grid *grid, struct SpriteBatch *sprite_batch, int32
 }
 
 void grid_destroy(struct Grid *grid) {
-    free(grid->are_rows_dirty);
     free(grid->data);
+    free(grid->are_rows_dirty);
+    free(grid->background_colors);
+    free(grid->foreground_colors);
 }
 
 extern inline void grid_set_char_i(struct Grid *grid, int32_t i, char character);

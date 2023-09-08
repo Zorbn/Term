@@ -7,7 +7,7 @@ struct TextBuffer text_buffer_create(void) {
     struct TextBuffer text_buffer = (struct TextBuffer){
         .data = malloc(TEXT_BUFFER_CAPACITY * sizeof(char)),
     };
-    assert(text_buffer.text_buffer);
+    assert(text_buffer.data);
 
     return text_buffer;
 }

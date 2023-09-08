@@ -1,5 +1,8 @@
 #include "pseudo_console.h"
 
+#include <stdatomic.h>
+#include <assert.h>
+
 HRESULT init_startup_information(HPCON hpc, STARTUPINFOEX *psi) {
     STARTUPINFOEX si;
     ZeroMemory(&si, sizeof(si));
@@ -117,6 +120,46 @@ void pseudo_console_resize(struct PseudoConsole *pseudo_console, size_t width, s
     ResizePseudoConsole(pseudo_console->hpc, (COORD){width, height});
 }
 
-void pseudo_console_destroy(struct PseudoConsole *pseudo_console) {
+struct PipeDrainInfo {
+    struct PseudoConsole *pseudo_console;
+    struct TextBuffer *text_buffer;
+    _Atomic(bool) is_pseudo_console_closed;
+};
+
+#include <stdio.h>
+
+DWORD WINAPI pipe_drain_thread_start(void *start_info) {
+    struct PipeDrainInfo *info = start_info;
+
+    DWORD bytes_available;
+
+    while (true) {
+        if (PeekNamedPipe(info->pseudo_console->output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
+            ReadFile(info->pseudo_console->output, info->text_buffer->data, TEXT_BUFFER_CAPACITY, &info->text_buffer->length, NULL);
+        }
+
+        if (bytes_available <= 0 && info->is_pseudo_console_closed) {
+            break;
+        }
+    }
+
+    return 0;
+}
+
+void pseudo_console_destroy(struct PseudoConsole *pseudo_console, struct TextBuffer *text_buffer) {
+    struct PipeDrainInfo pipe_drain_info = (struct PipeDrainInfo){
+        .pseudo_console = pseudo_console,
+        .text_buffer = text_buffer,
+    };
+    HANDLE pipe_drain_thread = CreateThread(NULL, 0, pipe_drain_thread_start, &pipe_drain_info, 0, NULL);
+    assert(pipe_drain_thread);
+
+    // Closing the pseudo console may send console output, and blocks until the output pipe is empty.
+    // So before doing this a thread is created to drain that output, and then the thread ends once the
+    // output pipe is empty and the console has been closed.
     ClosePseudoConsole(pseudo_console->hpc);
+    pipe_drain_info.is_pseudo_console_closed = true;
+
+    WaitForSingleObject(pipe_drain_thread, INFINITE);
+    CloseHandle(pipe_drain_thread);
 }
