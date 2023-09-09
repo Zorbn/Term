@@ -452,12 +452,18 @@ void grid_reset_formatting(struct Grid *grid) {
     grid->current_foreground_color = GRID_COLOR_FOREGROUND_DEFAULT;
 }
 
+#define PARSE_FAILED                                                                                                   \
+    *furthest_i = *i;                                                                                                  \
+    *i = start_i;                                                                                                      \
+    return false;
+
 // Returns true if an escape sequence was parsed.
-bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, struct Window *window) {
+bool grid_parse_escape_sequence(
+    struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, size_t *furthest_i, struct Window *window) {
+
     size_t start_i = *i;
     if (!text_buffer_match_char(text_buffer, '\x1b', i)) {
-        *i = start_i;
-        return false;
+        PARSE_FAILED
     }
 
     // Simple cursor positioning:
@@ -480,16 +486,14 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *text_buffe
     // Operating system commands:
     if (text_buffer_match_char(text_buffer, ']', i)) {
         if (*i >= text_buffer->length) {
-            *i = start_i;
-            return false;
+            PARSE_FAILED
         }
 
         char command_type = text_buffer->data[*i];
         *i += 1;
 
         if (!text_buffer_match_char(text_buffer, ';', i)) {
-            *i = start_i;
-            return false;
+            PARSE_FAILED
         }
 
         // Commands (ie: window titles) can be at most 255 characters.
@@ -585,8 +589,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *text_buffe
                 return true;
             }
 
-            *i = start_i;
-            return false;
+            PARSE_FAILED
         }
 
         // Cursor shape:
@@ -596,15 +599,12 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *text_buffe
                 return true;
             }
 
-            *i = start_i;
-            return false;
+            PARSE_FAILED
         }
 
         // Text formatting:
         {
             if (text_buffer_match_char(text_buffer, 'm', i)) {
-                // TODO: Support more formats.
-
                 uint32_t *background_color = &grid->current_background_color;
                 uint32_t *foreground_color = &grid->current_foreground_color;
 
@@ -621,7 +621,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *text_buffe
                             case 0: {
                                 grid_reset_formatting(grid);
                                 break;
-                }
+                            }
                             case 1: {
                                 *foreground_color = grid_color_to_bright(*foreground_color);
                                 break;
@@ -987,8 +987,7 @@ bool grid_parse_escape_sequence(struct Grid *grid, struct TextBuffer *text_buffe
     }
 
     // This sequence is invalid, ignore it.
-    *i = start_i;
-    return false;
+    PARSE_FAILED
 }
 
 void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,

@@ -6,13 +6,13 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-// TODO: Is this too big for the buffer? Is there a way to make it smaller while not splitting escape codes and failing
-// to process them?
 #define TEXT_BUFFER_CAPACITY 8192
 
 struct TextBuffer {
     char *data;
     DWORD length;
+    // The number of characters kept from the last read.
+    size_t kept_length;
 };
 
 struct TextBuffer text_buffer_create(void);

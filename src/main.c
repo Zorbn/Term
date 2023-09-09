@@ -82,7 +82,9 @@ int main() {
         while (
             PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
             BOOL did_read = ReadFile(
-                window.pseudo_console.output, text_buffer.data, TEXT_BUFFER_CAPACITY, &text_buffer.length, NULL);
+                window.pseudo_console.output, text_buffer.data + text_buffer.kept_length, TEXT_BUFFER_CAPACITY - text_buffer.kept_length, &text_buffer.length, NULL);
+            text_buffer.length += text_buffer.kept_length;
+            text_buffer.kept_length = 0;
             if (did_read) {
                 for (size_t i = 0; i < text_buffer.length;) {
                     // Skip multi-byte text. Replace it with a box character.
@@ -99,8 +101,15 @@ int main() {
                     // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences If <n>
                     // is omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they
                     // are assumed to be 1.
-                    if (grid_parse_escape_sequence(&grid, &text_buffer, &i, &window)) {
+                    size_t furthest_i = 0;
+                    if (grid_parse_escape_sequence(&grid, &text_buffer, &i, &furthest_i, &window)) {
                         continue;
+                    } else if (furthest_i >= text_buffer.length) {
+                        // The parse failed due to reaching the end of the buffer, the sequence may have been split across multiple reads.
+                        size_t keep_length = text_buffer.length - i;
+                        memmove(text_buffer.data, text_buffer.data + i, keep_length);
+                        text_buffer.kept_length = keep_length;
+                        break;
                     }
 
                     // Parse escape characters:
