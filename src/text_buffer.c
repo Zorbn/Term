@@ -33,6 +33,12 @@ bool text_buffer_digit(struct TextBuffer *text_buffer, size_t i) {
     return iswdigit(text_buffer->data[i]);
 }
 
+void text_buffer_keep_from_i(struct TextBuffer *text_buffer, size_t i) {
+    size_t keep_length = text_buffer->length - i;
+    memmove(text_buffer->data, text_buffer->data + i, keep_length);
+    text_buffer->kept_length = keep_length;
+}
+
 void text_buffer_destroy(struct TextBuffer *text_buffer) {
     free(text_buffer->data);
 }

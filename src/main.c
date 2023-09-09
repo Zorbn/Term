@@ -93,7 +93,15 @@ int main() {
                         while (j < 4 && ((text_buffer.data[i] << j) & 0x80)) {
                             j++;
                         }
-                        i += j - 1;
+
+                        size_t end_i = i + j - 1;
+                        if (end_i >= text_buffer.length) {
+                            // The multi-byte utf8 character was split across multiple reads.
+                            text_buffer_keep_from_i(&text_buffer, i);
+                            break;
+                        }
+
+                        i = end_i;
                         text_buffer.data[i] = FONT_LENGTH + 32;
                     }
 
@@ -104,11 +112,9 @@ int main() {
                     size_t furthest_i = 0;
                     if (grid_parse_escape_sequence(&grid, &text_buffer, &i, &furthest_i, &window)) {
                         continue;
-                    } else if (furthest_i >= text_buffer.length) {
+                    } else if (furthest_i >= text_buffer.length && i < text_buffer.length) {
                         // The parse failed due to reaching the end of the buffer, the sequence may have been split across multiple reads.
-                        size_t keep_length = text_buffer.length - i;
-                        memmove(text_buffer.data, text_buffer.data + i, keep_length);
-                        text_buffer.kept_length = keep_length;
+                        text_buffer_keep_from_i(&text_buffer, i);
                         break;
                     }
 
