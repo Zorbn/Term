@@ -47,6 +47,7 @@ struct Grid {
 
     bool should_show_cursor;
     bool should_send_mouse_inputs;
+    bool should_use_sgr_format;
 
     uint32_t *background_colors;
     uint32_t *foreground_colors;

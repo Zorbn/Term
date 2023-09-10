@@ -170,13 +170,13 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
     list_push_uint8_t(&window->typed_chars, key_char);
 }
 
-void list_push_digits(struct List_uint8_t *list, uint8_t x) {
+void list_push_digits(struct List_uint8_t *list, uint32_t x) {
     if (x == 0) {
         list_push_uint8_t(list, '0');
         return;
     }
 
-    char digits[3];
+    char digits[10];
     size_t digit_count = 0;
 
     while (x > 0) {
@@ -190,12 +190,36 @@ void list_push_digits(struct List_uint8_t *list, uint8_t x) {
     }
 }
 
-void send_mouse_input_sgr(struct Window *window, int32_t button, int32_t action, int32_t mods, bool is_motion, double mouse_x, double mouse_y) {
+void send_mouse_input_sgr(struct Window *window, uint8_t encoded_button, int32_t action, int32_t mods, bool is_motion, uint32_t mouse_tile_x, uint32_t mouse_tile_y) {
     list_push_uint8_t(&window->typed_chars, '\x1b');
     list_push_uint8_t(&window->typed_chars, '[');
     list_push_uint8_t(&window->typed_chars, '<');
 
-    char encoded_button = button;
+    list_push_digits(&window->typed_chars, encoded_button);
+    list_push_uint8_t(&window->typed_chars, ';');
+
+    list_push_digits(&window->typed_chars, mouse_tile_x);
+    list_push_uint8_t(&window->typed_chars, ';');
+    list_push_digits(&window->typed_chars, mouse_tile_y);
+
+    list_push_uint8_t(&window->typed_chars, action == GLFW_RELEASE ? 'm' : 'M');
+}
+
+void send_mouse_input_normal(struct Window *window, uint8_t encoded_button, int32_t action, int32_t mods, bool is_motion, uint32_t mouse_tile_x, uint32_t mouse_tile_y) {
+    list_push_uint8_t(&window->typed_chars, '\x1b');
+    list_push_uint8_t(&window->typed_chars, '[');
+    list_push_uint8_t(&window->typed_chars, 'M');
+
+
+    list_push_uint8_t(&window->typed_chars, encoded_button + 32);
+    list_push_uint8_t(&window->typed_chars, ';');
+
+    list_push_uint8_t(&window->typed_chars, mouse_tile_x + 32);
+    list_push_uint8_t(&window->typed_chars, mouse_tile_y + 32);
+}
+
+void send_mouse_input(struct Window *window, int32_t button, int32_t action, int32_t mods, bool is_motion, double mouse_x, double mouse_y) {
+    uint8_t encoded_button = button;
     if (mods & GLFW_MOD_SHIFT) {
         encoded_button += 4;
     }
@@ -208,17 +232,16 @@ void send_mouse_input_sgr(struct Window *window, int32_t button, int32_t action,
     if (is_motion) {
         button += 32;
     }
-    list_push_digits(&window->typed_chars, encoded_button);
-    list_push_uint8_t(&window->typed_chars, ';');
 
-    uint8_t mouse_tile_x = mouse_x / FONT_GLYPH_WIDTH + 1;
-    uint8_t mouse_tile_y = mouse_y / FONT_GLYPH_HEIGHT + 1;
+    uint32_t mouse_tile_x = mouse_x / FONT_GLYPH_WIDTH + 1;
+    uint32_t mouse_tile_y = mouse_y / FONT_GLYPH_HEIGHT + 1;
 
-    list_push_digits(&window->typed_chars, mouse_tile_x);
-    list_push_uint8_t(&window->typed_chars, ';');
-    list_push_digits(&window->typed_chars, mouse_tile_y);
+    if (window->grid->should_use_sgr_format) {
+        send_mouse_input_sgr(window, encoded_button, action, mods, is_motion, mouse_tile_x, mouse_tile_y);
+        return;
+    }
 
-    list_push_uint8_t(&window->typed_chars, action == GLFW_RELEASE ? 'm' : 'M');
+    send_mouse_input_normal(window, encoded_button, action, mods, is_motion, mouse_tile_x, mouse_tile_y);
 }
 
 void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t action, int32_t mods) {
@@ -232,12 +255,10 @@ void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t acti
     double mouse_x, mouse_y;
     glfwGetCursorPos(window->glfw_window, &mouse_x, &mouse_y);
 
-    // TODO: This is using the SGR protocol, which should only be conditionally enabled, use the normal protocol otherwise.
-    send_mouse_input_sgr(window, button, action, mods, false, mouse_x, mouse_y);
+    send_mouse_input(window, button, action, mods, false, mouse_x, mouse_y);
 }
 
 void mouse_move_callback(GLFWwindow* glfw_window, double mouse_x, double mouse_y) {
-    // TODO: This is using the SGR protocol, which should only be conditionally enabled, use the normal protocol otherwise.
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
 
     // TODO: Mouse motion/drag should be enabled seperately from normal mouse click events.
@@ -254,7 +275,20 @@ void mouse_move_callback(GLFWwindow* glfw_window, double mouse_x, double mouse_y
         button = 2;
     }
 
-    send_mouse_input_sgr(window, button, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+    send_mouse_input(window, button, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+}
+
+void mouse_scroll_callback(GLFWwindow *glfw_window, double scroll_x, double scroll_y) {
+    struct Window *window = glfwGetWindowUserPointer(glfw_window);
+
+    double mouse_x, mouse_y;
+    glfwGetCursorPos(window->glfw_window, &mouse_x, &mouse_y);
+
+    if (scroll_y < 0) {
+        send_mouse_input(window, 65, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+    } else if (scroll_y > 0) {
+        send_mouse_input(window, 64, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+    }
 }
 
 void character_callback(GLFWwindow *glfw_window, uint32_t codepoint) {
@@ -305,6 +339,7 @@ void window_setup(struct Window *window, struct Grid *grid, struct Renderer* ren
     framebuffer_size_callback(window->glfw_window, window->width, window->height);
     glfwSetMouseButtonCallback(window->glfw_window, mouse_button_callback);
     glfwSetCursorPosCallback(window->glfw_window, mouse_move_callback);
+    glfwSetScrollCallback(window->glfw_window, mouse_scroll_callback);
 }
 
 void window_update(struct Window *window) {

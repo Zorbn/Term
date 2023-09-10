@@ -582,6 +582,11 @@ bool grid_parse_escape_sequence(
                             grid->should_send_mouse_inputs = true;
                             break;
                         }
+                        case 1006: {
+                            grid->should_send_mouse_inputs = true;
+                            grid->should_use_sgr_format = true;
+                            break;
+                        }
                     }
                 }
 
@@ -598,6 +603,11 @@ bool grid_parse_escape_sequence(
                         case 1003:
                         case 1000: {
                             grid->should_send_mouse_inputs = false;
+                            break;
+                        }
+                        case 1006: {
+                            grid->should_send_mouse_inputs = false;
+                            grid->should_use_sgr_format = false;
                             break;
                         }
                     }
