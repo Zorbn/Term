@@ -2,12 +2,12 @@
 
 int main(void)
 {
-   printf("Hello, world!\n");
+	printf("Hello, world!\n");
 
-   for (int i = 0; i < 100; i++)
-   {
-       printf("i = %d\n", i);
-   }
-
-   return 0;
+	for (int i = 0; i < 100; i++)
+	{
+		printf("i = %d\n");
+	}
+	
+    return 0;
 }

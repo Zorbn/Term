@@ -141,6 +141,11 @@ int main() {
                         continue;
                     }
 
+                    // \a is the alert/bell escape sequence, ignore it.
+                    if (text_buffer_match_char(&text_buffer, '\a', &i)) {
+                        continue;
+                    }
+
                     if (grid.cursor_x >= grid.width) {
                         grid_cursor_move_to(&grid, 0, grid.cursor_y + 1);
                     }
