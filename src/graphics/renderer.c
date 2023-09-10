@@ -43,7 +43,7 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
                 grid_draw_tile(grid, sprite_batch, x, y, 0, renderer->scale);
             }
 
-            if (grid->show_cursor && y == grid->cursor_y) {
+            if (grid->should_show_cursor && y == grid->cursor_y) {
                 grid_draw_cursor(grid, sprite_batch, grid->cursor_x, grid->cursor_y, 2, renderer->scale);
             }
 

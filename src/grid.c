@@ -515,7 +515,7 @@ bool grid_parse_escape_sequence(
                     memcpy(title, text_buffer->data + *i, command_length);
                     title[command_length] = '\0';
 
-                    glfwSetWindowTitle(window->glfw_window, (char *)title);
+                    window_set_title(window, title);
 
                     free(title);
 
@@ -565,23 +565,44 @@ bool grid_parse_escape_sequence(
             return true;
         }
 
-        // Cursor visibility:
+        // Cursor visibility and mouse mode:
         if (starts_with_question_mark) {
             // Unrecognized numbers here are just ignored, since they are sometimes
             // sent by programs trying to change the mouse mode or other things that we don't support.
-            bool should_show_hide_cursor = parsed_number_count == 1 && parsed_numbers[0] == 25;
 
             if (text_buffer_match_char(text_buffer, 'h', i)) {
-                if (should_show_hide_cursor) {
-                    grid->show_cursor = true;
+                for (size_t i = 0; i < parsed_number_count; i++) {
+                    switch (parsed_numbers[i]) {
+                        case 25: {
+                            grid->should_show_cursor = true;
+                            break;
+                        }
+                        case 1003:
+                        case 1000: {
+                            grid->should_send_mouse_inputs = true;
+                            break;
+                        }
+                    }
                 }
+
                 return true;
             }
 
             if (text_buffer_match_char(text_buffer, 'l', i)) {
-                if (should_show_hide_cursor) {
-                    grid->show_cursor = false;
+                for (size_t i = 0; i < parsed_number_count; i++) {
+                    switch (parsed_numbers[i]) {
+                        case 25: {
+                            grid->should_show_cursor = false;
+                            break;
+                        }
+                        case 1003:
+                        case 1000: {
+                            grid->should_send_mouse_inputs = false;
+                            break;
+                        }
+                    }
                 }
+
                 return true;
             }
 
@@ -898,7 +919,7 @@ bool grid_parse_escape_sequence(
 
         // Text modification:
         {
-            uint32_t n = parsed_number_count > 0 ? parsed_numbers[0] : 0;
+            uint32_t n = parsed_numbers[0];
 
             if (text_buffer_match_char(text_buffer, 'X', i)) {
                 uint32_t erase_start = grid->cursor_x + grid->cursor_y * grid->width;
@@ -943,7 +964,7 @@ bool grid_parse_escape_sequence(
                     if (text_buffer_match_char(text_buffer, 'J', i)) {
                         uint32_t erase_count = grid->cursor_x + grid->cursor_y * grid->width;
 
-                        for (size_t erase_i = 0; erase_i < erase_count; erase_i++) {
+                        for (size_t erase_i = 0; erase_i <= erase_count; erase_i++) {
                             grid_set_char_i(grid, erase_i, ' ');
                         }
 

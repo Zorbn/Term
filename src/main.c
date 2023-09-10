@@ -34,7 +34,7 @@ int main() {
     struct Grid grid = grid_create(grid_width, grid_height);
     struct TextBuffer text_buffer = text_buffer_create();
     struct Renderer renderer = renderer_create(&grid);
-    window_setup_resize_callback(&window, &grid, &renderer);
+    window_setup(&window, &grid, &renderer);
 
     double last_frame_time = glfwGetTime();
     float fps_print_timer = 0.0f;
@@ -70,8 +70,10 @@ int main() {
             printf("fps: %f\n", 1.0f / delta_time);
         }
 
-        CHAR *typed_chars = (CHAR *)window.typed_chars.data;
-        WriteFile(window.pseudo_console.input, typed_chars, window.typed_chars.length, NULL, NULL);
+        if (window.typed_chars.length > 0) {
+            CHAR *typed_chars = (CHAR *)window.typed_chars.data;
+            WriteFile(window.pseudo_console.input, typed_chars, window.typed_chars.length, NULL, NULL);
+        }
 
         // Exit when the process we're reading from exits.
         if (WaitForSingleObject(window.pseudo_console.h_process, 0) != WAIT_TIMEOUT) {

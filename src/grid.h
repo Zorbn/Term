@@ -1,7 +1,6 @@
 #ifndef GRID_H
 #define GRID_H
 
-#include "window.h"
 #include "text_buffer.h"
 #include "graphics/sprite_batch.h"
 
@@ -30,6 +29,9 @@
 #define GRID_COLOR_BRIGHT_CYAN 0x61d6d6
 #define GRID_COLOR_BRIGHT_WHITE 0xf2f2f2
 
+struct Window;
+void window_set_title(struct Window *window, char *title);
+
 struct Grid {
     char *data;
     bool *are_rows_dirty;
@@ -43,7 +45,8 @@ struct Grid {
     int32_t saved_cursor_x;
     int32_t saved_cursor_y;
 
-    bool show_cursor;
+    bool should_show_cursor;
+    bool should_send_mouse_inputs;
 
     uint32_t *background_colors;
     uint32_t *foreground_colors;

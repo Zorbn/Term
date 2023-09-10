@@ -1,5 +1,7 @@
 #include "window.h"
 
+#include "font.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -27,6 +29,7 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
     uint8_t write_char = 0;
     bool needs_write = true;
     bool is_key_arrow = false;
+    bool is_key_cursor = false;
 
     switch (key) {
         case GLFW_KEY_ENTER: {
@@ -65,21 +68,35 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
             write_char = 'D';
             break;
         }
+        case GLFW_KEY_HOME: {
+            is_key_cursor = true;
+            write_char = 'H';
+            break;
+        }
+        case GLFW_KEY_END: {
+            is_key_cursor = true;
+            write_char = 'F';
+            break;
+        }
         default: {
             needs_write = false;
             break;
         }
     }
 
+    is_key_cursor = is_key_cursor || is_key_arrow;
+
     bool is_shift_pressed = mods & GLFW_MOD_SHIFT;
     bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
     bool is_alt_pressed = mods & GLFW_MOD_ALT;
 
     if (needs_write) {
-        if (is_key_arrow) {
+        if (is_key_cursor) {
             list_push_uint8_t(&window->typed_chars, '\x1b');
             list_push_uint8_t(&window->typed_chars, '[');
+        }
 
+        if (is_key_arrow) {
             if (mods) {
                 list_push_uint8_t(&window->typed_chars, '1');
                 list_push_uint8_t(&window->typed_chars, ';');
@@ -101,7 +118,6 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
     }
 
     // Handle ctrl + [key] and alt + [key] here because those won't be send to character_callback.
-    // TODO: Handle special codes like ctrl + space.
     if (!is_ctrl_pressed && !is_alt_pressed) {
         return;
     }
@@ -154,9 +170,91 @@ void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_
     list_push_uint8_t(&window->typed_chars, key_char);
 }
 
+void list_push_digits(struct List_uint8_t *list, uint8_t x) {
+    if (x == 0) {
+        list_push_uint8_t(list, '0');
+        return;
+    }
+
+    char digits[3];
+    size_t digit_count = 0;
+
+    while (x > 0) {
+        digits[digit_count] = '0' + x % 10;
+        x /= 10;
+        digit_count++;
+    }
+
+    for (int32_t i = digit_count - 1; i >= 0; i--) {
+        list_push_uint8_t(list, digits[i]);
+    }
+}
+
+void send_mouse_input_sgr(struct Window *window, int32_t button, int32_t action, int32_t mods, bool is_motion, double mouse_x, double mouse_y) {
+    list_push_uint8_t(&window->typed_chars, '\x1b');
+    list_push_uint8_t(&window->typed_chars, '[');
+    list_push_uint8_t(&window->typed_chars, '<');
+
+    char encoded_button = button;
+    if (mods & GLFW_MOD_SHIFT) {
+        encoded_button += 4;
+    }
+    if (mods & GLFW_MOD_ALT) {
+        encoded_button += 8;
+    }
+    if (mods & GLFW_MOD_CONTROL) {
+        encoded_button += 16;
+    }
+    if (is_motion) {
+        button += 32;
+    }
+    list_push_digits(&window->typed_chars, encoded_button);
+    list_push_uint8_t(&window->typed_chars, ';');
+
+    uint8_t mouse_tile_x = mouse_x / FONT_GLYPH_WIDTH + 1;
+    uint8_t mouse_tile_y = mouse_y / FONT_GLYPH_HEIGHT + 1;
+
+    list_push_digits(&window->typed_chars, mouse_tile_x);
+    list_push_uint8_t(&window->typed_chars, ';');
+    list_push_digits(&window->typed_chars, mouse_tile_y);
+
+    list_push_uint8_t(&window->typed_chars, action == GLFW_RELEASE ? 'm' : 'M');
+}
+
 void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     input_update_button(&window->input, button, action);
+
+    if (!window->grid->should_send_mouse_inputs || button < 0 || button > 2) {
+        return;
+    }
+
+    double mouse_x, mouse_y;
+    glfwGetCursorPos(window->glfw_window, &mouse_x, &mouse_y);
+
+    // TODO: This is using the SGR protocol, which should only be conditionally enabled, use the normal protocol otherwise.
+    send_mouse_input_sgr(window, button, action, mods, false, mouse_x, mouse_y);
+}
+
+void mouse_move_callback(GLFWwindow* glfw_window, double mouse_x, double mouse_y) {
+    // TODO: This is using the SGR protocol, which should only be conditionally enabled, use the normal protocol otherwise.
+    struct Window *window = glfwGetWindowUserPointer(glfw_window);
+
+    // TODO: Mouse motion/drag should be enabled seperately from normal mouse click events.
+    if (!window->grid->should_send_mouse_inputs) {
+        return;
+    }
+
+    int32_t button = 3;
+    if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
+        button = 0;
+    } else if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_RIGHT)) {
+        button = 1;
+    } else if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_MIDDLE)) {
+        button = 2;
+    }
+
+    send_mouse_input_sgr(window, button, GLFW_PRESS, 0, true, mouse_x, mouse_y);
 }
 
 void character_callback(GLFWwindow *glfw_window, uint32_t codepoint) {
@@ -195,22 +293,27 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     }
 
     glfwSetKeyCallback(glfw_window, key_callback);
-    glfwSetMouseButtonCallback(glfw_window, mouse_button_callback);
     glfwSetCharCallback(glfw_window, character_callback);
 
     return window;
 }
 
-void window_setup_resize_callback(struct Window *window, struct Grid *grid, struct Renderer* renderer) {
+void window_setup(struct Window *window, struct Grid *grid, struct Renderer* renderer) {
     window->grid = grid;
     window->renderer = renderer;
     glfwSetFramebufferSizeCallback(window->glfw_window, framebuffer_size_callback);
     framebuffer_size_callback(window->glfw_window, window->width, window->height);
+    glfwSetMouseButtonCallback(window->glfw_window, mouse_button_callback);
+    glfwSetCursorPosCallback(window->glfw_window, mouse_move_callback);
 }
 
 void window_update(struct Window *window) {
     input_update(&window->input);
     list_reset_uint8_t(&window->typed_chars);
+}
+
+void window_set_title(struct Window *window, char *title) {
+    glfwSetWindowTitle(window->glfw_window, title);
 }
 
 void window_destroy(struct Window *window) {
