@@ -233,8 +233,8 @@ void send_mouse_input(struct Window *window, int32_t button, int32_t action, int
         button += 32;
     }
 
-    uint32_t mouse_tile_x = mouse_x / FONT_GLYPH_WIDTH + 1;
-    uint32_t mouse_tile_y = mouse_y / FONT_GLYPH_HEIGHT + 1;
+    uint32_t mouse_tile_x = mouse_x / (FONT_GLYPH_WIDTH * window->scale) + 1;
+    uint32_t mouse_tile_y = mouse_y / (FONT_GLYPH_HEIGHT * window->scale) + 1;
 
     if (window->grid->should_use_sgr_format) {
         send_mouse_input_sgr(window, encoded_button, action, mods, is_motion, mouse_tile_x, mouse_tile_y);
