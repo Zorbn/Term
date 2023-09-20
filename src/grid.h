@@ -32,6 +32,13 @@
 struct Window;
 void window_set_title(struct Window *window, char *title);
 
+enum GridMouseMode {
+    GRID_MOUSE_MODE_NONE,
+    GRID_MOUSE_MODE_BUTTON,
+    GRID_MOUSE_MODE_DRAG,
+    GRID_MOUSE_MODE_ANY,
+};
+
 struct Grid {
     char *data;
     bool *are_rows_dirty;
@@ -46,8 +53,10 @@ struct Grid {
     int32_t saved_cursor_y;
 
     bool should_show_cursor;
-    bool should_send_mouse_inputs;
     bool should_use_sgr_format;
+    bool has_mouse_mode_button;
+    bool has_mouse_mode_drag;
+    bool has_mouse_mode_any;
 
     uint32_t *background_colors;
     uint32_t *foreground_colors;
@@ -64,6 +73,7 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character);
 void grid_scroll_down(struct Grid *grid);
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y);
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y);
+enum GridMouseMode grid_get_mouse_mode(struct Grid *grid);
 bool grid_parse_escape_sequence(
     struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, size_t *furthest_i, struct Window *window);
 void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale);

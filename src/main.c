@@ -18,7 +18,6 @@
 
 /*
  * Missing features:
- * Mouse input,
  * Copy/paste,
  * Scrollback,
  */

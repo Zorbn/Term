@@ -22,10 +22,14 @@ struct Window {
     int32_t height;
     float scale;
     bool did_resize;
+
     struct Input input;
     // TODO: Move to input struct:
     // TODO: Rename to something else, mouse inputs are also sent here.
     struct List_uint8_t typed_chars;
+    uint32_t mouse_tile_x;
+    uint32_t mouse_tile_y;
+
     struct PseudoConsole pseudo_console; // TODO: Is this going to stay here? If it is initialize it in window_create.
     struct Grid *grid;
     struct Renderer *renderer;

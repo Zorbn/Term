@@ -190,7 +190,7 @@ void list_push_digits(struct List_uint8_t *list, uint32_t x) {
     }
 }
 
-void send_mouse_input_sgr(struct Window *window, uint8_t encoded_button, int32_t action, int32_t mods, bool is_motion, uint32_t mouse_tile_x, uint32_t mouse_tile_y) {
+void send_mouse_input_sgr(struct Window *window, uint8_t encoded_button, int32_t action, int32_t mods) {
     list_push_uint8_t(&window->typed_chars, '\x1b');
     list_push_uint8_t(&window->typed_chars, '[');
     list_push_uint8_t(&window->typed_chars, '<');
@@ -198,27 +198,26 @@ void send_mouse_input_sgr(struct Window *window, uint8_t encoded_button, int32_t
     list_push_digits(&window->typed_chars, encoded_button);
     list_push_uint8_t(&window->typed_chars, ';');
 
-    list_push_digits(&window->typed_chars, mouse_tile_x);
+    list_push_digits(&window->typed_chars, window->mouse_tile_x);
     list_push_uint8_t(&window->typed_chars, ';');
-    list_push_digits(&window->typed_chars, mouse_tile_y);
+    list_push_digits(&window->typed_chars, window->mouse_tile_y);
 
     list_push_uint8_t(&window->typed_chars, action == GLFW_RELEASE ? 'm' : 'M');
 }
 
-void send_mouse_input_normal(struct Window *window, uint8_t encoded_button, int32_t action, int32_t mods, bool is_motion, uint32_t mouse_tile_x, uint32_t mouse_tile_y) {
+void send_mouse_input_normal(struct Window *window, uint8_t encoded_button, int32_t action, int32_t mods) {
     list_push_uint8_t(&window->typed_chars, '\x1b');
     list_push_uint8_t(&window->typed_chars, '[');
     list_push_uint8_t(&window->typed_chars, 'M');
 
-
     list_push_uint8_t(&window->typed_chars, encoded_button + 32);
     list_push_uint8_t(&window->typed_chars, ';');
 
-    list_push_uint8_t(&window->typed_chars, mouse_tile_x + 32);
-    list_push_uint8_t(&window->typed_chars, mouse_tile_y + 32);
+    list_push_uint8_t(&window->typed_chars, window->mouse_tile_x + 32);
+    list_push_uint8_t(&window->typed_chars, window->mouse_tile_y + 32);
 }
 
-void send_mouse_input(struct Window *window, int32_t button, int32_t action, int32_t mods, bool is_motion, double mouse_x, double mouse_y) {
+void send_mouse_input(struct Window *window, int32_t button, int32_t action, int32_t mods, bool is_motion) {
     uint8_t encoded_button = button;
     if (mods & GLFW_MOD_SHIFT) {
         encoded_button += 4;
@@ -230,64 +229,74 @@ void send_mouse_input(struct Window *window, int32_t button, int32_t action, int
         encoded_button += 16;
     }
     if (is_motion) {
-        button += 32;
+        encoded_button += 32;
     }
 
-    uint32_t mouse_tile_x = mouse_x / (FONT_GLYPH_WIDTH * window->scale) + 1;
-    uint32_t mouse_tile_y = mouse_y / (FONT_GLYPH_HEIGHT * window->scale) + 1;
-
     if (window->grid->should_use_sgr_format) {
-        send_mouse_input_sgr(window, encoded_button, action, mods, is_motion, mouse_tile_x, mouse_tile_y);
+        send_mouse_input_sgr(window, encoded_button, action, mods);
         return;
     }
 
-    send_mouse_input_normal(window, encoded_button, action, mods, is_motion, mouse_tile_x, mouse_tile_y);
+    send_mouse_input_normal(window, encoded_button, action, mods);
 }
 
 void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     input_update_button(&window->input, button, action);
 
-    if (!window->grid->should_send_mouse_inputs || button < 0 || button > 2) {
+    if (grid_get_mouse_mode(window->grid) == GRID_MOUSE_MODE_NONE || button < 0 || button > 2) {
         return;
     }
 
-    double mouse_x, mouse_y;
-    glfwGetCursorPos(window->glfw_window, &mouse_x, &mouse_y);
-
-    send_mouse_input(window, button, action, mods, false, mouse_x, mouse_y);
+    send_mouse_input(window, button, action, mods, false);
 }
 
-void mouse_move_callback(GLFWwindow* glfw_window, double mouse_x, double mouse_y) {
+void mouse_move_callback(GLFWwindow *glfw_window, double mouse_x, double mouse_y) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
 
-    // TODO: Mouse motion/drag should be enabled seperately from normal mouse click events.
-    if (!window->grid->should_send_mouse_inputs) {
+    uint32_t mouse_tile_x = mouse_x / (FONT_GLYPH_WIDTH * window->scale) + 1;
+    uint32_t mouse_tile_y = mouse_y / (FONT_GLYPH_HEIGHT * window->scale) + 1;
+
+    if (mouse_tile_x == window->mouse_tile_x && mouse_tile_y == window->mouse_tile_y) {
+        return;
+    }
+
+    window->mouse_tile_x = mouse_tile_x;
+    window->mouse_tile_y = mouse_tile_y;
+
+    enum GridMouseMode mouse_mode = grid_get_mouse_mode(window->grid);
+
+    if (mouse_mode == GRID_MOUSE_MODE_NONE || mouse_mode == GRID_MOUSE_MODE_BUTTON) {
         return;
     }
 
     int32_t button = 3;
-    if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
+    if (input_is_button_held(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
         button = 0;
-    } else if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_RIGHT)) {
+    } else if (input_is_button_held(&window->input, GLFW_MOUSE_BUTTON_RIGHT)) {
         button = 1;
-    } else if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_MIDDLE)) {
+    } else if (input_is_button_held(&window->input, GLFW_MOUSE_BUTTON_MIDDLE)) {
         button = 2;
     }
 
-    send_mouse_input(window, button, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+    if (button == 3 && mouse_mode != GRID_MOUSE_MODE_ANY) {
+        return;
+    }
+
+    send_mouse_input(window, button, GLFW_PRESS, 0, true);
 }
 
 void mouse_scroll_callback(GLFWwindow *glfw_window, double scroll_x, double scroll_y) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
 
-    double mouse_x, mouse_y;
-    glfwGetCursorPos(window->glfw_window, &mouse_x, &mouse_y);
+    if (grid_get_mouse_mode(window->grid) == GRID_MOUSE_MODE_NONE) {
+        return;
+    }
 
     if (scroll_y < 0) {
-        send_mouse_input(window, 65, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+        send_mouse_input(window, 65, GLFW_PRESS, 0, true);
     } else if (scroll_y > 0) {
-        send_mouse_input(window, 64, GLFW_PRESS, 0, true, mouse_x, mouse_y);
+        send_mouse_input(window, 64, GLFW_PRESS, 0, true);
     }
 }
 
@@ -332,7 +341,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     return window;
 }
 
-void window_setup(struct Window *window, struct Grid *grid, struct Renderer* renderer) {
+void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer) {
     window->grid = grid;
     window->renderer = renderer;
     glfwSetFramebufferSizeCallback(window->glfw_window, framebuffer_size_callback);

@@ -457,6 +457,47 @@ void grid_reset_formatting(struct Grid *grid) {
     *i = start_i;                                                                                                      \
     return false;
 
+void grid_update_mode(struct Grid *grid, int mode, bool enabled) {
+    switch (mode) {
+        case 25: {
+            grid->should_show_cursor = enabled;
+            break;
+        }
+        case 1000: {
+            grid->has_mouse_mode_button = enabled;
+            break;
+        }
+        case 1002: {
+            grid->has_mouse_mode_drag = enabled;
+            break;
+        }
+        case 1003: {
+            grid->has_mouse_mode_any = enabled;
+            break;
+        }
+        case 1006: {
+            grid->should_use_sgr_format = enabled;
+            break;
+        }
+    }
+}
+
+enum GridMouseMode grid_get_mouse_mode(struct Grid *grid) {
+    if (grid->has_mouse_mode_any) {
+        return GRID_MOUSE_MODE_ANY;
+    }
+
+    if (grid->has_mouse_mode_drag) {
+        return GRID_MOUSE_MODE_DRAG;
+    }
+
+    if (grid->has_mouse_mode_button) {
+        return GRID_MOUSE_MODE_BUTTON;
+    }
+
+    return GRID_MOUSE_MODE_NONE;
+}
+
 // Returns true if an escape sequence was parsed.
 bool grid_parse_escape_sequence(
     struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, size_t *furthest_i, struct Window *window) {
@@ -572,22 +613,7 @@ bool grid_parse_escape_sequence(
 
             if (text_buffer_match_char(text_buffer, 'h', i)) {
                 for (size_t i = 0; i < parsed_number_count; i++) {
-                    switch (parsed_numbers[i]) {
-                        case 25: {
-                            grid->should_show_cursor = true;
-                            break;
-                        }
-                        case 1003:
-                        case 1000: {
-                            grid->should_send_mouse_inputs = true;
-                            break;
-                        }
-                        case 1006: {
-                            grid->should_send_mouse_inputs = true;
-                            grid->should_use_sgr_format = true;
-                            break;
-                        }
-                    }
+                    grid_update_mode(grid, parsed_numbers[i], true);
                 }
 
                 return true;
@@ -595,22 +621,7 @@ bool grid_parse_escape_sequence(
 
             if (text_buffer_match_char(text_buffer, 'l', i)) {
                 for (size_t i = 0; i < parsed_number_count; i++) {
-                    switch (parsed_numbers[i]) {
-                        case 25: {
-                            grid->should_show_cursor = false;
-                            break;
-                        }
-                        case 1003:
-                        case 1000: {
-                            grid->should_send_mouse_inputs = false;
-                            break;
-                        }
-                        case 1006: {
-                            grid->should_send_mouse_inputs = false;
-                            grid->should_use_sgr_format = false;
-                            break;
-                        }
-                    }
+                    grid_update_mode(grid, parsed_numbers[i], false);
                 }
 
                 return true;
