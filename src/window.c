@@ -294,9 +294,9 @@ void mouse_scroll_callback(GLFWwindow *glfw_window, double scroll_x, double scro
     }
 
     if (scroll_y < 0) {
-        send_mouse_input(window, 65, GLFW_PRESS, 0, true);
+        send_mouse_input(window, 65, GLFW_PRESS, 0, false);
     } else if (scroll_y > 0) {
-        send_mouse_input(window, 64, GLFW_PRESS, 0, true);
+        send_mouse_input(window, 64, GLFW_PRESS, 0, false);
     }
 }
 
