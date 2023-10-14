@@ -3,6 +3,8 @@
 #include "color.h"
 #include "font.h"
 
+#include <math.h>
+
 const uint32_t color_table[256] = {
     0x000000,
     0x800000,
@@ -263,7 +265,7 @@ const uint32_t color_table[256] = {
 };
 
 struct Grid grid_create(
-    size_t width, size_t height, void *on_row_changed_context, void (*on_row_changed)(void *context, int32_t y)) {
+    size_t width, size_t height, void *callback_context, void (*on_row_changed)(void *context, int32_t y)) {
 
     size_t size = width * height;
     struct Grid grid = (struct Grid){
@@ -280,7 +282,7 @@ struct Grid grid_create(
         .current_background_color = GRID_COLOR_BACKGROUND_DEFAULT,
         .current_foreground_color = GRID_COLOR_FOREGROUND_DEFAULT,
 
-        .on_row_changed_context = on_row_changed_context,
+        .callback_context = callback_context,
         .on_row_changed = on_row_changed,
     };
     assert(grid.data);
@@ -292,7 +294,91 @@ struct Grid grid_create(
     return grid;
 }
 
+// Get the length of a line without trailing whitespace.
+size_t grid_get_occupied_line_length(struct Grid *grid, size_t y) {
+    size_t line_length = 0;
+    for (int32_t i = grid->width - 1; i >= 0; i--) {
+        if (grid->data[i + y * grid->width] != ' ') {
+            line_length = i + 1;
+            break;
+        }
+    }
+
+    return line_length;
+}
+
+// Get the height of the grid without trailing blank lines.
+size_t grid_get_occupied_height(struct Grid *grid) {
+    size_t occupied_grid_height = 0;
+    for (int32_t y = grid->height - 1; y >= 0; y--) {
+        if (grid_get_occupied_line_length(grid, y) != 0) {
+            occupied_grid_height = y + 1;
+            break;
+        }
+    }
+
+    return occupied_grid_height;
+}
+
+void grid_push_partial_line_to_scrollback(struct Grid *grid, size_t y, size_t length) {
+    struct ScrollbackLine scrollback_line = {
+        .length = length,
+    };
+
+    size_t start_offset = y * grid->width;
+
+    scrollback_line.data = malloc(length * sizeof(char));
+    assert(scrollback_line.data);
+    memcpy(scrollback_line.data, grid->data + start_offset, length * sizeof(char));
+
+    scrollback_line.background_colors = malloc(length * sizeof(uint32_t));
+    assert(scrollback_line.background_colors);
+    memcpy(scrollback_line.background_colors, grid->background_colors + start_offset, length * sizeof(uint32_t));
+
+    scrollback_line.foreground_colors = malloc(length * sizeof(uint32_t));
+    assert(scrollback_line.foreground_colors);
+    memcpy(scrollback_line.foreground_colors, grid->foreground_colors + start_offset, length * sizeof(uint32_t));
+
+    list_push_struct_ScrollbackLine(&grid->scrollback_lines, scrollback_line);
+}
+
+void grid_push_line_to_scrollback(struct Grid *grid, size_t y) {
+    size_t length = grid_get_occupied_line_length(grid, y);
+    grid_push_partial_line_to_scrollback(grid, y, length);
+}
+
+// When resizing the grid, the pseudo console will wrap lines, overwriting
+// the lines currently on the screen. It will skip lines that won't fit on the screen, so
+// this function pushes those excess lines into the scrollback buffer manually.
+void grid_resize_update_scrollback(struct Grid *grid, size_t width, size_t height) {
+    int32_t wrapped_line_count = 0;
+    size_t occupied_grid_height = grid_get_occupied_height(grid);
+    for (size_t y = 0; y < occupied_grid_height; y++) {
+        size_t occupied_line_length = grid_get_occupied_line_length(grid, y);
+        wrapped_line_count += max((int32_t)ceilf(occupied_line_length / (float)width), 1);
+    }
+
+    int32_t excess_line_count = wrapped_line_count - height;
+    for (int32_t y = 0; excess_line_count > 0; y++) {
+        int32_t occupied_line_length = grid_get_occupied_line_length(grid, y);
+        int32_t line_wrapped_line_count = max((int32_t)ceilf(occupied_line_length / (float)width), 1);
+
+        // The whole line is excess.
+        if (excess_line_count >= line_wrapped_line_count) {
+            grid_push_line_to_scrollback(grid, y);
+            excess_line_count -= line_wrapped_line_count;
+            continue;
+        }
+
+        // Only part of the line is excess (which means this is also the last of the excess lines).
+        grid_push_partial_line_to_scrollback(grid, y, excess_line_count * width);
+        break;
+    }
+}
+
 void grid_resize(struct Grid *grid, size_t width, size_t height) {
+    grid_resize_update_scrollback(grid, width, height);
+
     grid->size = width * height;
 
     size_t old_width = grid->width;
@@ -313,7 +399,7 @@ void grid_resize(struct Grid *grid, size_t width, size_t height) {
     assert(grid->foreground_colors);
 
     for (size_t y = 0; y < grid->height; y++) {
-        grid->on_row_changed(grid->on_row_changed_context, y);
+        grid->on_row_changed(grid->callback_context, y);
 
         for (size_t x = 0; x < grid->width; x++) {
             size_t i = x + y * grid->width;
@@ -349,28 +435,7 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
 
 void grid_scroll_down(struct Grid *grid) {
     // Save the first row into the scrollback buffer.
-    struct ScrollbackLine scrollback_line = {0};
-    for (int32_t i = grid->width - 1; i >= 0; i--) {
-        if (grid->data[i] != ' ') {
-            scrollback_line.length = i + 1;
-            break;
-        }
-    }
-
-    // TODO: Some of this code duplication can probably be reduced.
-    scrollback_line.data = malloc(scrollback_line.length * sizeof(char));
-    assert(scrollback_line.data);
-    memcpy(scrollback_line.data, grid->data, scrollback_line.length * sizeof(char));
-
-    scrollback_line.background_colors = malloc(scrollback_line.length * sizeof(uint32_t));
-    assert(scrollback_line.background_colors);
-    memcpy(scrollback_line.background_colors, grid->background_colors, scrollback_line.length * sizeof(uint32_t));
-
-    scrollback_line.foreground_colors = malloc(scrollback_line.length * sizeof(uint32_t));
-    assert(scrollback_line.foreground_colors);
-    memcpy(scrollback_line.foreground_colors, grid->foreground_colors, scrollback_line.length * sizeof(uint32_t));
-
-    list_push_struct_ScrollbackLine(&grid->scrollback_lines, scrollback_line);
+    grid_push_line_to_scrollback(grid, 0);
 
     // Shift all rows after the first up by one (overwriting the first row).
     size_t preserved_tile_count = grid->size - grid->width;
@@ -381,7 +446,7 @@ void grid_scroll_down(struct Grid *grid) {
     // The cursor didn't move with the rows, so the row the cursor used to be on
     // needs to be updated. The cursor isn't on it anymore.
     if (grid->cursor_y - 1 > 0) {
-        grid->on_row_changed(grid->on_row_changed_context, grid->cursor_y - 1);
+        grid->on_row_changed(grid->callback_context, grid->cursor_y - 1);
     }
 
     for (size_t i = 0; i < grid->width; i++) {
@@ -399,7 +464,7 @@ void grid_cursor_restore(struct Grid *grid) {
 }
 
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
-    grid->on_row_changed(grid->on_row_changed_context, grid->cursor_y);
+    grid->on_row_changed(grid->callback_context, grid->cursor_y);
 
     grid->cursor_x = x;
     grid->cursor_y = y;
@@ -416,7 +481,7 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
         grid->cursor_y = grid->height - 1;
     }
 
-    grid->on_row_changed(grid->on_row_changed_context, grid->cursor_y);
+    grid->on_row_changed(grid->callback_context, grid->cursor_y);
 }
 
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {

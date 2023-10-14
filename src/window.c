@@ -22,7 +22,7 @@ void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, int32_t h
 
 void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
-    window->renderer->scrollback_distance = 0;
+    renderer_scroll_reset(window->renderer);
 
     input_update_button(&window->input, key, action);
 

@@ -77,12 +77,12 @@ struct Grid {
 
     bool are_colors_swapped;
 
-    void *on_row_changed_context;
+    void *callback_context;
     void (*on_row_changed)(void *context, int32_t y);
 };
 
 struct Grid grid_create(
-    size_t width, size_t height, void *on_row_changed_context, void (*on_row_changed)(void *context, int32_t y));
+    size_t width, size_t height, void *callback_context, void (*on_row_changed)(void *context, int32_t y));
 void grid_resize(struct Grid *grid, size_t width, size_t height);
 void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character);
 void grid_scroll_down(struct Grid *grid);
@@ -98,9 +98,7 @@ inline void grid_set_char_i(struct Grid *grid, int32_t i, char character) {
     grid->background_colors[i] = grid->current_background_color;
     grid->foreground_colors[i] = grid->current_foreground_color;
 
-    if (grid->on_row_changed) {
-        grid->on_row_changed(grid->on_row_changed_context, i / grid->width);
-    }
+    grid->on_row_changed(grid->callback_context, i / grid->width);
 }
 
 #endif

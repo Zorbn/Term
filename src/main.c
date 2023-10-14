@@ -30,7 +30,8 @@ int main() {
     printf("Console result: %ld\n", window.pseudo_console.result);
 
     struct Renderer renderer = renderer_create(grid_width, grid_height);
-    struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
+    struct Grid grid =
+        grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
     struct TextBuffer text_buffer = text_buffer_create();
     window_setup(&window, &grid, &renderer);
 
@@ -81,8 +82,8 @@ int main() {
         DWORD bytes_available;
         while (
             PeekNamedPipe(window.pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
-            BOOL did_read = ReadFile(
-                window.pseudo_console.output, text_buffer.data + text_buffer.kept_length, TEXT_BUFFER_CAPACITY - text_buffer.kept_length, &text_buffer.length, NULL);
+            BOOL did_read = ReadFile(window.pseudo_console.output, text_buffer.data + text_buffer.kept_length,
+                TEXT_BUFFER_CAPACITY - text_buffer.kept_length, &text_buffer.length, NULL);
             text_buffer.length += text_buffer.kept_length;
             text_buffer.kept_length = 0;
             if (did_read) {
@@ -113,7 +114,8 @@ int main() {
                     if (grid_parse_escape_sequence(&grid, &text_buffer, &i, &furthest_i, &window)) {
                         continue;
                     } else if (furthest_i >= text_buffer.length && i < text_buffer.length) {
-                        // The parse failed due to reaching the end of the buffer, the sequence may have been split across multiple reads.
+                        // The parse failed due to reaching the end of the buffer, the sequence may have been split
+                        // across multiple reads.
                         text_buffer_keep_from_i(&text_buffer, i);
                         break;
                     }
@@ -149,7 +151,8 @@ int main() {
                     }
                     grid_set_char(&grid, grid.cursor_x, grid.cursor_y, text_buffer.data[i]);
                     // TODO: When typing past the end of the screen, and then backspacing back this can cause the
-                    // cursor to be one cursor past the grid width. Maybe limit the cursor's visual representation to grid->width - 1?
+                    // cursor to be one cursor past the grid width. Maybe limit the cursor's visual representation to
+                    // grid->width - 1?
                     grid.cursor_x++;
 
                     i++;

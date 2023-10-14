@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 #include "../font.h"
+#include <stdlib.h>
 
 struct Renderer renderer_create(size_t width, size_t height) {
     glEnable(GL_DEPTH_TEST);
@@ -32,6 +33,15 @@ void renderer_on_row_changed(void *context, int32_t y) {
     }
 
     renderer->are_sprite_batches_dirty[sprite_batch_y] = true;
+}
+
+int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
+    int32_t visible_scrollback_line_count = renderer->scrollback_distance;
+    if (visible_scrollback_line_count > renderer->sprite_batch_count) {
+        visible_scrollback_line_count = renderer->sprite_batch_count;
+    }
+
+    return visible_scrollback_line_count;
 }
 
 void renderer_draw_character(char character, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
@@ -91,63 +101,39 @@ void renderer_draw_cursor(
     renderer_draw_character(character, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
 }
 
-void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, GLFWwindow *glfw_window) {
-    glClearColor(renderer->background_color.r, renderer->background_color.g, renderer->background_color.b, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+    for (size_t y = 0; y < visible_scrollback_line_count; y++) {
+        if (!renderer->are_sprite_batches_dirty[y]) {
+            continue;
+        }
+        renderer->are_sprite_batches_dirty[y] = false;
 
-    glUseProgram(renderer->program);
-    glUniformMatrix4fv(renderer->projection_matrix_location, 1, GL_FALSE, (const float *)&renderer->projection_matrix);
-    glBindTexture(GL_TEXTURE_2D, renderer->texture_atlas.id);
+        struct SpriteBatch *sprite_batch = &renderer->sprite_batches[y];
 
-    int32_t visible_scrollback_line_count = renderer->scrollback_distance;
-    if (visible_scrollback_line_count > renderer->sprite_batch_count) {
-        visible_scrollback_line_count = renderer->sprite_batch_count;
+        sprite_batch_begin(sprite_batch);
+
+        size_t scrollback_y = grid->scrollback_lines.length - renderer->scrollback_distance + y;
+        size_t scrollback_line_length = grid->scrollback_lines.data[scrollback_y].length;
+        if (scrollback_line_length > grid->width) {
+            scrollback_line_length = grid->width;
+        }
+
+        for (size_t x = 0; x < scrollback_line_length; x++) {
+            char character = grid->scrollback_lines.data[scrollback_y].data[x];
+            struct Color background_color =
+                color_from_hex(grid->scrollback_lines.data[scrollback_y].background_colors[x]);
+            struct Color foreground_color =
+                color_from_hex(grid->scrollback_lines.data[scrollback_y].foreground_colors[x]);
+
+            renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
+        }
+
+        sprite_batch_end(sprite_batch, renderer->texture_atlas.width, renderer->texture_atlas.height);
     }
+}
 
-    int32_t scrollback_y =
-        grid->scrollback_lines.length - renderer->scrollback_distance + visible_scrollback_line_count;
-    int32_t scrollback_line_x = 0;
-
-    for (int32_t y = visible_scrollback_line_count - 1; y >= 0; y--) {
-        if (scrollback_line_x <= 0) {
-            scrollback_y--;
-            scrollback_line_x = grid->scrollback_lines.data[scrollback_y].length;
-        }
-
-        int32_t wrapped_line_length = scrollback_line_x;
-        while (wrapped_line_length > grid->width) {
-            wrapped_line_length -= grid->width;
-        }
-
-        // TODO:
-        // if (!renderer->are_sprite_batches_dirty[y]) {
-        //     continue;
-        // }
-        if (renderer->are_sprite_batches_dirty[y]) {
-            renderer->are_sprite_batches_dirty[y] = false;
-
-            struct SpriteBatch *sprite_batch = &renderer->sprite_batches[y];
-
-            sprite_batch_begin(sprite_batch);
-
-            for (size_t x = 0; x < wrapped_line_length; x++) {
-                size_t line_x = scrollback_line_x - wrapped_line_length + x;
-                char character = grid->scrollback_lines.data[scrollback_y].data[line_x];
-                struct Color background_color =
-                    color_from_hex(grid->scrollback_lines.data[scrollback_y].background_colors[line_x]);
-                struct Color foreground_color =
-                    color_from_hex(grid->scrollback_lines.data[scrollback_y].foreground_colors[line_x]);
-
-                renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
-            }
-
-            sprite_batch_end(sprite_batch, renderer->texture_atlas.width, renderer->texture_atlas.height);
-        }
-
-        scrollback_line_x -= wrapped_line_length;
-    }
-
-    for (size_t y = renderer->scrollback_distance; y < renderer->sprite_batch_count; y++) {
+void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+    for (size_t y = visible_scrollback_line_count; y < renderer->sprite_batch_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
             continue;
         }
@@ -174,6 +160,19 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
 
         sprite_batch_end(sprite_batch, renderer->texture_atlas.width, renderer->texture_atlas.height);
     }
+}
+
+void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, GLFWwindow *glfw_window) {
+    glClearColor(renderer->background_color.r, renderer->background_color.g, renderer->background_color.b, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(renderer->program);
+    glUniformMatrix4fv(renderer->projection_matrix_location, 1, GL_FALSE, (const float *)&renderer->projection_matrix);
+    glBindTexture(GL_TEXTURE_2D, renderer->texture_atlas.id);
+
+    int32_t visible_scrollback_line_count = renderer_get_visible_scrollback_line_count(renderer);
+    renderer_draw_scrollback(renderer, grid, visible_scrollback_line_count);
+    renderer_draw_grid(renderer, grid, visible_scrollback_line_count);
 
     for (size_t y = 0; y < renderer->sprite_batch_count; y++) {
         struct SpriteBatch *sprite_batch = &renderer->sprite_batches[y];
@@ -191,6 +190,12 @@ void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t 
     renderer->projection_matrix = glms_ortho(0.0f, (float)width, 0.0f, (float)height, -100.0, 100.0);
 }
 
+void renderer_mark_all_sprite_batches_dirty(struct Renderer *renderer) {
+    for (size_t i = 0; i < renderer->sprite_batch_count; i++) {
+        renderer->are_sprite_batches_dirty[i] = true;
+    }
+}
+
 void renderer_resize(struct Renderer *renderer, size_t width, size_t height, float scale) {
     renderer->scale = scale;
 
@@ -203,16 +208,25 @@ void renderer_resize(struct Renderer *renderer, size_t width, size_t height, flo
     renderer->sprite_batches = malloc(renderer->sprite_batch_count * sizeof(struct SpriteBatch));
     assert(renderer->sprite_batches);
     free(renderer->are_sprite_batches_dirty);
-    // The grid will send on_row_changed events for each row during a resize.
-    // So we can default batches to being clean.
-    renderer->are_sprite_batches_dirty = calloc(renderer->sprite_batch_count, sizeof(bool));
+    renderer->are_sprite_batches_dirty = malloc(renderer->sprite_batch_count * sizeof(bool));
     assert(renderer->are_sprite_batches_dirty);
+    // Every row is dirty when the screen gets resized.
+    renderer_mark_all_sprite_batches_dirty(renderer);
 
     for (size_t i = 0; i < renderer->sprite_batch_count; i++) {
         // 2 sprites per tile (foreground background), plus a potential cursor which also has a foreground and
         // background.
         renderer->sprite_batches[i] = sprite_batch_create(width * 2 + 2);
     }
+}
+
+void renderer_scroll_reset(struct Renderer *renderer) {
+    if (renderer->scrollback_distance == 0) {
+        return;
+    }
+
+    renderer->scrollback_distance = 0;
+    renderer_mark_all_sprite_batches_dirty(renderer);
 }
 
 void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid) {
@@ -238,11 +252,10 @@ void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid
 
 void renderer_scroll_up(struct Renderer *renderer, struct Grid *grid) {
     renderer->scrollback_distance += 1;
-    // TODO:
-    // if (renderer->scrollback_distance > grid->scrollback_lines.length) {
-    //     renderer->scrollback_distance = grid->scrollback_lines.length;
-    //     return;
-    // }
+    if (renderer->scrollback_distance > grid->scrollback_lines.length) {
+        renderer->scrollback_distance = grid->scrollback_lines.length;
+        return;
+    }
 
     // Rotate the sprite batchs to allow scrolling without updating every batch.
     struct SpriteBatch last_sprite_batch = renderer->sprite_batches[renderer->sprite_batch_count - 1];

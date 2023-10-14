@@ -30,9 +30,11 @@ struct Renderer {
 
 struct Renderer renderer_create(size_t width, size_t height);
 void renderer_on_row_changed(void *context, int32_t y);
+void renderer_on_push_scrollback_line(void *context);
 void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, GLFWwindow *glfw_window);
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height);
 void renderer_resize(struct Renderer *renderer, size_t width, size_t height, float scale);
+void renderer_scroll_reset(struct Renderer *renderer);
 void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid);
 void renderer_scroll_up(struct Renderer *renderer, struct Grid *grid);
 void renderer_destroy(struct Renderer *renderer);
