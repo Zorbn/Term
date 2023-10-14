@@ -22,6 +22,7 @@ struct Window {
     int32_t height;
     float scale;
     bool did_resize;
+    bool is_visible;
 
     struct Input input;
     // TODO: Move to input struct:
@@ -36,6 +37,7 @@ struct Window {
 };
 
 struct Window window_create(char *title, int32_t width, int32_t height);
+void window_show(struct Window *window);
 void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer);
 void window_set_title(struct Window *window, char *title);
 void window_update(struct Window *window);

@@ -2,7 +2,7 @@
 #define GRID_H
 
 #include "text_buffer.h"
-#include "graphics/sprite_batch.h"
+#include "list.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -39,12 +39,23 @@ enum GridMouseMode {
     GRID_MOUSE_MODE_ANY,
 };
 
+struct ScrollbackLine {
+    char *data;
+    uint32_t *background_colors;
+    uint32_t *foreground_colors;
+    size_t length;
+};
+
+typedef struct ScrollbackLine struct_ScrollbackLine;
+LIST_DEFINE(struct_ScrollbackLine)
+
 struct Grid {
     char *data;
-    bool *are_rows_dirty;
     size_t width;
     size_t height;
     size_t size;
+
+    struct List_struct_ScrollbackLine scrollback_lines;
 
     int32_t cursor_x;
     int32_t cursor_y;
@@ -65,9 +76,13 @@ struct Grid {
     uint32_t current_foreground_color;
 
     bool are_colors_swapped;
+
+    void *on_row_changed_context;
+    void (*on_row_changed)(void *context, int32_t y);
 };
 
-struct Grid grid_create(size_t width, size_t height);
+struct Grid grid_create(
+    size_t width, size_t height, void *on_row_changed_context, void (*on_row_changed)(void *context, int32_t y));
 void grid_resize(struct Grid *grid, size_t width, size_t height);
 void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character);
 void grid_scroll_down(struct Grid *grid);
@@ -76,9 +91,6 @@ void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y);
 enum GridMouseMode grid_get_mouse_mode(struct Grid *grid);
 bool grid_parse_escape_sequence(
     struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, size_t *furthest_i, struct Window *window);
-void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale);
-void grid_draw_cursor(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale);
 void grid_destroy(struct Grid *grid);
 
 inline void grid_set_char_i(struct Grid *grid, int32_t i, char character) {
@@ -86,7 +98,9 @@ inline void grid_set_char_i(struct Grid *grid, int32_t i, char character) {
     grid->background_colors[i] = grid->current_background_color;
     grid->foreground_colors[i] = grid->current_foreground_color;
 
-    grid->are_rows_dirty[i / grid->width] = true;
+    if (grid->on_row_changed) {
+        grid->on_row_changed(grid->on_row_changed_context, i / grid->width);
+    }
 }
 
 #endif

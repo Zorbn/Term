@@ -126,8 +126,6 @@ struct PipeDrainInfo {
     _Atomic(bool) is_pseudo_console_closed;
 };
 
-#include <stdio.h>
-
 DWORD WINAPI pipe_drain_thread_start(void *start_info) {
     struct PipeDrainInfo *info = start_info;
 

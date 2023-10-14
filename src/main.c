@@ -19,7 +19,6 @@
 /*
  * Missing features:
  * Copy/paste,
- * Scrollback,
  */
 
 int main() {
@@ -30,9 +29,9 @@ int main() {
     window.pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
     printf("Console result: %ld\n", window.pseudo_console.result);
 
-    struct Grid grid = grid_create(grid_width, grid_height);
+    struct Renderer renderer = renderer_create(grid_width, grid_height);
+    struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
     struct TextBuffer text_buffer = text_buffer_create();
-    struct Renderer renderer = renderer_create(&grid);
     window_setup(&window, &grid, &renderer);
 
     double last_frame_time = glfwGetTime();
@@ -52,8 +51,8 @@ int main() {
             }
 
             pseudo_console_resize(&window.pseudo_console, new_grid_width, new_grid_height);
+            renderer_resize(&renderer, new_grid_width, new_grid_height, window.scale);
             grid_resize(window.grid, new_grid_width, new_grid_height);
-            renderer_resize(&renderer, &grid, window.scale);
 
             window.did_resize = false;
         }
@@ -127,7 +126,7 @@ int main() {
 
                     if (text_buffer_match_char(&text_buffer, '\n', &i)) {
                         if (grid.cursor_y == grid.height - 1) {
-                            renderer_scroll_down(&renderer);
+                            renderer_scroll_down(&renderer, true);
                             grid_scroll_down(&grid);
                         } else {
                             grid_cursor_move(&grid, 0, 1);
@@ -149,6 +148,8 @@ int main() {
                         grid_cursor_move_to(&grid, 0, grid.cursor_y + 1);
                     }
                     grid_set_char(&grid, grid.cursor_x, grid.cursor_y, text_buffer.data[i]);
+                    // TODO: When typing past the end of the screen, and then backspacing back this can cause the
+                    // cursor to be one cursor past the grid width. Maybe limit the cursor's visual representation to grid->width - 1?
                     grid.cursor_x++;
 
                     i++;
@@ -157,6 +158,7 @@ int main() {
         }
 
         renderer_draw(&renderer, &grid, window.height, window.glfw_window);
+        window_show(&window);
         window_update(&window);
         glfwPollEvents();
     }

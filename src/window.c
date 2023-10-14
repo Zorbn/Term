@@ -1,6 +1,8 @@
 #include "window.h"
 
+#include "GLFW/glfw3.h"
 #include "font.h"
+#include "graphics/renderer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +22,8 @@ void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, int32_t h
 
 void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
+    window->renderer->scrollback_distance = 0;
+
     input_update_button(&window->input, key, action);
 
     if (action != GLFW_PRESS && action != GLFW_REPEAT) {
@@ -290,6 +294,12 @@ void mouse_scroll_callback(GLFWwindow *glfw_window, double scroll_x, double scro
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
 
     if (grid_get_mouse_mode(window->grid) == GRID_MOUSE_MODE_NONE) {
+        if (scroll_y < 0) {
+            renderer_scroll_down(window->renderer, false);
+        } else if (scroll_y > 0) {
+            renderer_scroll_up(window->renderer, window->grid);
+        }
+
         return;
     }
 
@@ -310,6 +320,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     GLFWwindow *glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
     if (!glfw_window) {
@@ -339,6 +350,15 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
     glfwSetCharCallback(glfw_window, character_callback);
 
     return window;
+}
+
+void window_show(struct Window *window) {
+    if (window->is_visible) {
+        return;
+    }
+
+    glfwShowWindow(window->glfw_window);
+    window->is_visible = true;
 }
 
 void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer) {

@@ -262,23 +262,28 @@ const uint32_t color_table[256] = {
     0xeeeeee,
 };
 
-struct Grid grid_create(size_t width, size_t height) {
+struct Grid grid_create(
+    size_t width, size_t height, void *on_row_changed_context, void (*on_row_changed)(void *context, int32_t y)) {
+
     size_t size = width * height;
     struct Grid grid = (struct Grid){
         .data = malloc(size * sizeof(char)),
-        .are_rows_dirty = malloc(height * sizeof(bool)),
         .width = width,
         .height = height,
         .size = size,
+
+        .scrollback_lines = list_create_struct_ScrollbackLine(64),
 
         .background_colors = malloc(size * sizeof(uint32_t)),
         .foreground_colors = malloc(size * sizeof(uint32_t)),
 
         .current_background_color = GRID_COLOR_BACKGROUND_DEFAULT,
         .current_foreground_color = GRID_COLOR_FOREGROUND_DEFAULT,
+
+        .on_row_changed_context = on_row_changed_context,
+        .on_row_changed = on_row_changed,
     };
     assert(grid.data);
-    assert(grid.are_rows_dirty);
 
     for (size_t i = 0; i < size; i++) {
         grid_set_char_i(&grid, i, ' ');
@@ -307,12 +312,8 @@ void grid_resize(struct Grid *grid, size_t width, size_t height) {
     grid->foreground_colors = malloc(grid->size * sizeof(uint32_t));
     assert(grid->foreground_colors);
 
-    free(grid->are_rows_dirty);
-    grid->are_rows_dirty = malloc(grid->height * sizeof(bool));
-    assert(grid->are_rows_dirty);
-
     for (size_t y = 0; y < grid->height; y++) {
-        grid->are_rows_dirty[y] = true;
+        grid->on_row_changed(grid->on_row_changed_context, y);
 
         for (size_t x = 0; x < grid->width; x++) {
             size_t i = x + y * grid->width;
@@ -347,13 +348,41 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
 }
 
 void grid_scroll_down(struct Grid *grid) {
-    grid->are_rows_dirty[grid->cursor_y] = true;
+    // Save the first row into the scrollback buffer.
+    struct ScrollbackLine scrollback_line = {0};
+    for (int32_t i = grid->width - 1; i >= 0; i--) {
+        if (grid->data[i] != ' ') {
+            scrollback_line.length = i + 1;
+            break;
+        }
+    }
 
+    // TODO: Some of this code duplication can probably be reduced.
+    scrollback_line.data = malloc(scrollback_line.length * sizeof(char));
+    assert(scrollback_line.data);
+    memcpy(scrollback_line.data, grid->data, scrollback_line.length * sizeof(char));
+
+    scrollback_line.background_colors = malloc(scrollback_line.length * sizeof(uint32_t));
+    assert(scrollback_line.background_colors);
+    memcpy(scrollback_line.background_colors, grid->background_colors, scrollback_line.length * sizeof(uint32_t));
+
+    scrollback_line.foreground_colors = malloc(scrollback_line.length * sizeof(uint32_t));
+    assert(scrollback_line.foreground_colors);
+    memcpy(scrollback_line.foreground_colors, grid->foreground_colors, scrollback_line.length * sizeof(uint32_t));
+
+    list_push_struct_ScrollbackLine(&grid->scrollback_lines, scrollback_line);
+
+    // Shift all rows after the first up by one (overwriting the first row).
     size_t preserved_tile_count = grid->size - grid->width;
     memmove(grid->data, grid->data + grid->width, preserved_tile_count * sizeof(char));
     memmove(grid->background_colors, grid->background_colors + grid->width, preserved_tile_count * sizeof(uint32_t));
     memmove(grid->foreground_colors, grid->foreground_colors + grid->width, preserved_tile_count * sizeof(uint32_t));
-    memmove(grid->are_rows_dirty, grid->are_rows_dirty + 1, (grid->height - 1) * sizeof(bool));
+
+    // The cursor didn't move with the rows, so the row the cursor used to be on
+    // needs to be updated. The cursor isn't on it anymore.
+    if (grid->cursor_y - 1 > 0) {
+        grid->on_row_changed(grid->on_row_changed_context, grid->cursor_y - 1);
+    }
 
     for (size_t i = 0; i < grid->width; i++) {
         grid_set_char(grid, i, grid->height - 1, ' ');
@@ -370,7 +399,7 @@ void grid_cursor_restore(struct Grid *grid) {
 }
 
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
-    grid->are_rows_dirty[grid->cursor_y] = true;
+    grid->on_row_changed(grid->on_row_changed_context, grid->cursor_y);
 
     grid->cursor_x = x;
     grid->cursor_y = y;
@@ -387,7 +416,7 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y) {
         grid->cursor_y = grid->height - 1;
     }
 
-    grid->are_rows_dirty[grid->cursor_y] = true;
+    grid->on_row_changed(grid->on_row_changed_context, grid->cursor_y);
 }
 
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y) {
@@ -1032,68 +1061,16 @@ bool grid_parse_escape_sequence(
     PARSE_FAILED
 }
 
-void grid_draw_character(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
-    float scale, float r, float g, float b) {
-
-    char character = grid->data[x + y * grid->width];
-    if (character == ' ') {
-        return;
-    }
-
-    sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * FONT_GLYPH_WIDTH * scale,
-                                       .z = z * scale,
-                                       .width = FONT_GLYPH_WIDTH * scale,
-                                       .height = FONT_GLYPH_HEIGHT * scale,
-
-                                       .texture_x = 8 * (character - 32),
-                                       .texture_width = FONT_GLYPH_WIDTH,
-                                       .texture_height = FONT_GLYPH_HEIGHT,
-
-                                       .r = r,
-                                       .g = g,
-                                       .b = b,
-                                   });
-}
-
-void grid_draw_box(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
-
-    sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * FONT_GLYPH_WIDTH * scale,
-                                       .z = z * scale,
-                                       .width = FONT_GLYPH_WIDTH * scale,
-                                       .height = FONT_GLYPH_HEIGHT * scale,
-
-                                       .texture_x = 0,
-                                       .texture_width = FONT_GLYPH_WIDTH,
-                                       .texture_height = FONT_GLYPH_HEIGHT,
-
-                                       .r = r,
-                                       .g = g,
-                                       .b = b,
-                                   });
-}
-
-void grid_draw_tile(struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
-    size_t i = x + y * grid->width;
-    struct Color background_color = color_from_hex(grid->background_colors[i]);
-    grid_draw_box(grid, sprite_batch, x, z, scale, background_color.r, background_color.g, background_color.b);
-    struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
-    grid_draw_character(
-        grid, sprite_batch, x, y, z + 1, scale, foreground_color.r, foreground_color.g, foreground_color.b);
-}
-
-void grid_draw_cursor(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
-
-    grid_draw_box(grid, sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
-    grid_draw_character(grid, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
-}
-
 void grid_destroy(struct Grid *grid) {
     free(grid->data);
-    free(grid->are_rows_dirty);
+
+    for (size_t i = 0; i < grid->scrollback_lines.length; i++) {
+        free(grid->scrollback_lines.data[i].data);
+        free(grid->scrollback_lines.data[i].background_colors);
+        free(grid->scrollback_lines.data[i].foreground_colors);
+    }
+    list_destroy_struct_ScrollbackLine(&grid->scrollback_lines);
+
     free(grid->background_colors);
     free(grid->foreground_colors);
 }
