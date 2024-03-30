@@ -25,6 +25,7 @@
         "resources.h": "c",
         "assert.h": "c",
         "string.h": "c",
-        "camera.h": "c"
+        "camera.h": "c",
+        "renderer.h": "c"
     }
 }

@@ -29,6 +29,7 @@ add_executable(
     ${TERM_SOURCE_FILES}
     deps/glad/src/glad.c
 )
+target_link_options(Term PRIVATE "-Wl,/subsystem:windows,/entry:mainCRTStartup")
 target_include_directories(Term PRIVATE deps/glad/include deps/stb_image/include)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)

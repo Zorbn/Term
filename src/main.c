@@ -21,13 +21,12 @@
  * Copy/paste,
  */
 
-int main() {
+int main(void) {
     struct Window window = window_create("Term", 640, 480);
 
     const int32_t grid_width = window.width / FONT_GLYPH_WIDTH;
     const int32_t grid_height = window.height / FONT_GLYPH_HEIGHT;
     window.pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
-    printf("Console result: %ld\n", window.pseudo_console.result);
 
     struct Renderer renderer = renderer_create(grid_width, grid_height);
     struct Grid grid =
