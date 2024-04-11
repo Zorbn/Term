@@ -38,7 +38,6 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
 
     uint8_t write_char = 0;
     bool needs_write = true;
-    bool is_key_arrow = false;
     bool is_key_cursor = false;
 
     switch (key) {
@@ -59,22 +58,22 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
             break;
         }
         case GLFW_KEY_UP: {
-            is_key_arrow = true;
+            is_key_cursor = true;
             write_char = 'A';
             break;
         }
         case GLFW_KEY_DOWN: {
-            is_key_arrow = true;
+            is_key_cursor = true;
             write_char = 'B';
             break;
         }
         case GLFW_KEY_RIGHT: {
-            is_key_arrow = true;
+            is_key_cursor = true;
             write_char = 'C';
             break;
         }
         case GLFW_KEY_LEFT: {
-            is_key_arrow = true;
+            is_key_cursor = true;
             write_char = 'D';
             break;
         }
@@ -94,8 +93,6 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
         }
     }
 
-    is_key_cursor = is_key_cursor || is_key_arrow;
-
     bool is_shift_pressed = mods & GLFW_MOD_SHIFT;
     bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
     bool is_alt_pressed = mods & GLFW_MOD_ALT;
@@ -104,9 +101,7 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
         if (is_key_cursor) {
             list_push_uint8_t(&window->typed_chars, '\x1b');
             list_push_uint8_t(&window->typed_chars, '[');
-        }
 
-        if (is_key_arrow) {
             if (mods) {
                 list_push_uint8_t(&window->typed_chars, '1');
                 list_push_uint8_t(&window->typed_chars, ';');
