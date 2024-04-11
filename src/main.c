@@ -32,7 +32,6 @@ int main(void) {
     struct Renderer renderer = renderer_create(grid_width, grid_height);
     struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
     window_setup(&window, &grid, &renderer);
-    window_show(&window); // TODO
 
     struct ReadThreadData read_thread_data = (struct ReadThreadData){
         .grid = &grid,
@@ -96,7 +95,7 @@ int main(void) {
         if (window.needs_redraw) {
             WaitForSingleObject(read_thread_data.mutex, INFINITE);
 
-            // window_show(&window); TODO
+            window_show(&window);
             renderer_draw(&renderer, &grid, window.height, window.glfw_window);
 
             window.needs_redraw = false;
@@ -105,29 +104,10 @@ int main(void) {
         }
 
         window_update(&window);
+
+        MsgWaitForMultipleObjects(1, &read_thread_data.event, false, INFINITE, QS_ALLINPUT);
+
         glfwPollEvents();
-
-        double current_frame_end_time = glfwGetTime();
-        double current_frame_delta_time = current_frame_end_time - current_frame_time;
-        // Sleep time is the desired frame time excluding the time spent on this frame.
-        // An extra millisecond is removed from the time because the timer may sometimes
-        // have a slight delay, and we prefer to be slightly too fast instead of too slow.
-        double sleep_time = (1.0 / window.refresh_rate - current_frame_delta_time) * 1000.0 - 1.0;
-
-        if (sleep_time > 0.0) {
-            HANDLE timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
-            LARGE_INTEGER timer_time;
-            timer_time.QuadPart = -10000.0 * sleep_time;
-
-            SetWaitableTimer(timer, &timer_time, 0, NULL, NULL, false);
-            // HANDLE handles[2] = {timer, read_thread_data.event};
-            HANDLE handles[1] = {read_thread_data.event};
-            // WaitForMultipleObjects(2, handles, false, INFINITE);
-            MsgWaitForMultipleObjects(1, handles, false, INFINITE, QS_ALLINPUT);
-            // WaitForSingleObject(timer, INFINITE);
-
-            glfwPollEvents();
-        }
     }
 
     pseudo_console_destroy(&window.pseudo_console);
