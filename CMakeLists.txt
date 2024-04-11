@@ -15,6 +15,7 @@ set (
     src/window.c src/window.h
     src/grid.c src/grid.h
     src/color.c src/color.h
+    src/reader.c src/reader.h
     src/text_buffer.c src/text_buffer.h
     src/pseudo_console.c src/pseudo_console.h
     src/graphics/mesh.c src/graphics/mesh.h

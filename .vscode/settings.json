@@ -28,6 +28,10 @@
         "camera.h": "c",
         "renderer.h": "c",
         "detect_leak.h": "c",
-        "font.h": "c"
+        "font.h": "c",
+        "text_buffer.h": "c",
+        "reader.h": "c",
+        "pseudo_console.h": "c",
+        "windows.h": "c"
     }
 }
