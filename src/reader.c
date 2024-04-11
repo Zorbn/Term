@@ -18,14 +18,13 @@ static DWORD WINAPI read_thread_start(void *start_info) {
             break;
         }
 
-        puts("read");
-
         WaitForSingleObject(data->mutex, INFINITE);
 
         text_buffer.length += text_buffer.kept_length;
         text_buffer.kept_length = 0;
 
         window->needs_redraw = true;
+        SetEvent(data->event);
 
         for (size_t i = 0; i < text_buffer.length;) {
             // Skip multi-byte text. Replace it with a box character.
@@ -113,13 +112,6 @@ struct Reader reader_create(struct ReadThreadData *read_thread_data) {
 }
 
 void reader_destroy(struct Reader *reader, struct ReadThreadData *read_thread_data) {
-    DWORD bytes_available;
-
-    while (PeekNamedPipe(read_thread_data->window->pseudo_console.output, NULL, 0, NULL, &bytes_available, NULL) && bytes_available > 0) {
-    }
-
-    puts("read thread destroyed");
-
     TerminateThread(reader->read_thread, 0);
     CloseHandle(reader->read_thread);
 }

@@ -14,6 +14,7 @@ struct ReadThreadData {
     struct Renderer *renderer;
     struct Window *window;
     HANDLE mutex;
+    HANDLE event;
 };
 
 struct Reader {
