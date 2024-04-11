@@ -3,7 +3,7 @@
 #include <stdatomic.h>
 #include <assert.h>
 
-HRESULT init_startup_information(HPCON hpc, STARTUPINFOEX *psi) {
+static HRESULT init_startup_information(HPCON hpc, STARTUPINFOEX *psi) {
     STARTUPINFOEX si;
     ZeroMemory(&si, sizeof(si));
     si.StartupInfo.cb = sizeof(STARTUPINFOEX);
@@ -126,7 +126,7 @@ struct PipeDrainInfo {
     _Atomic(bool) is_pseudo_console_closed;
 };
 
-DWORD WINAPI pipe_drain_thread_start(void *start_info) {
+static DWORD WINAPI pipe_drain_thread_start(void *start_info) {
     struct PipeDrainInfo *info = start_info;
 
     DWORD bytes_available;

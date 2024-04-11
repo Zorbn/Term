@@ -26,6 +26,8 @@
         "assert.h": "c",
         "string.h": "c",
         "camera.h": "c",
-        "renderer.h": "c"
+        "renderer.h": "c",
+        "detect_leak.h": "c",
+        "font.h": "c"
     }
 }

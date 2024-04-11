@@ -35,7 +35,7 @@ void renderer_on_row_changed(void *context, int32_t y) {
     renderer->are_sprite_batches_dirty[sprite_batch_y] = true;
 }
 
-int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
+static int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
     int32_t visible_scrollback_line_count = renderer->scrollback_distance;
     if (visible_scrollback_line_count > renderer->sprite_batch_count) {
         visible_scrollback_line_count = renderer->sprite_batch_count;
@@ -44,7 +44,7 @@ int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
     return visible_scrollback_line_count;
 }
 
-void renderer_draw_character(char character, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
+static void renderer_draw_character(char character, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
     float scale, float r, float g, float b) {
 
     if (character == ' ') {
@@ -67,7 +67,7 @@ void renderer_draw_character(char character, struct SpriteBatch *sprite_batch, i
                                    });
 }
 
-void renderer_draw_box(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
+static void renderer_draw_box(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * FONT_GLYPH_WIDTH * scale,
                                        .z = z * scale,
@@ -84,7 +84,7 @@ void renderer_draw_box(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, f
                                    });
 }
 
-void renderer_draw_tile(char character, struct Color foreground_color, struct Color background_color,
+static void renderer_draw_tile(char character, struct Color foreground_color, struct Color background_color,
     struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
 
     renderer_draw_box(sprite_batch, x, z, scale, background_color.r, background_color.g, background_color.b);
@@ -92,8 +92,12 @@ void renderer_draw_tile(char character, struct Color foreground_color, struct Co
         character, sprite_batch, x, y, z + 1, scale, foreground_color.r, foreground_color.g, foreground_color.b);
 }
 
-void renderer_draw_cursor(
+static void renderer_draw_cursor(
     struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
+
+    if (x >= grid->width) {
+        x = grid->width - 1;
+    }
 
     renderer_draw_box(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
 
@@ -101,7 +105,7 @@ void renderer_draw_cursor(
     renderer_draw_character(character, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
 }
 
-void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
     for (size_t y = 0; y < visible_scrollback_line_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
             continue;
@@ -132,7 +136,7 @@ void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid, int3
     }
 }
 
-void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
     for (size_t y = visible_scrollback_line_count; y < renderer->sprite_batch_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
             continue;
@@ -190,7 +194,7 @@ void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t 
     renderer->projection_matrix = glms_ortho(0.0f, (float)width, 0.0f, (float)height, -100.0, 100.0);
 }
 
-void renderer_mark_all_sprite_batches_dirty(struct Renderer *renderer) {
+static void renderer_mark_all_sprite_batches_dirty(struct Renderer *renderer) {
     for (size_t i = 0; i < renderer->sprite_batch_count; i++) {
         renderer->are_sprite_batches_dirty[i] = true;
     }

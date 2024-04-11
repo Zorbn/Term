@@ -21,8 +21,10 @@ struct Window {
     int32_t width;
     int32_t height;
     float scale;
+    int32_t refresh_rate;
     bool did_resize;
     bool is_visible;
+    bool needs_redraw;
 
     struct Input input;
     // TODO: Move to input struct:
