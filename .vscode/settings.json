@@ -32,6 +32,7 @@
         "text_buffer.h": "c",
         "reader.h": "c",
         "pseudo_console.h": "c",
-        "windows.h": "c"
+        "windows.h": "c",
+        "color.h": "c"
     }
 }

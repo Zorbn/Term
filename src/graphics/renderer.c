@@ -191,7 +191,7 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
 
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height) {
     glViewport(0, 0, width, height);
-    renderer->projection_matrix = glms_ortho(0.0f, (float)width, 0.0f, (float)height, -100.0, 100.0);
+    renderer->projection_matrix = matrix4_orthographic(0.0f, (float)width, 0.0f, (float)height, -100.0, 100.0);
 }
 
 static void renderer_mark_all_sprite_batches_dirty(struct Renderer *renderer) {

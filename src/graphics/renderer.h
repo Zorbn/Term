@@ -6,10 +6,9 @@
 
 #include "../grid.h"
 #include "../color.h"
+#include "../geometry.h"
 #include "resources.h"
 #include "sprite_batch.h"
-
-#include <cglm/struct.h>
 
 struct Renderer {
     struct SpriteBatch *sprite_batches;
@@ -20,7 +19,7 @@ struct Renderer {
     struct Color background_color;
 
     struct Texture texture_atlas;
-    mat4s projection_matrix;
+    struct Matrix4 projection_matrix;
     uint32_t program;
     int32_t projection_matrix_location;
     int32_t offset_y_location;

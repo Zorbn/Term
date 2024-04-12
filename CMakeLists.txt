@@ -16,6 +16,7 @@ set (
     src/grid.c src/grid.h
     src/color.c src/color.h
     src/reader.c src/reader.h
+    src/geometry.c src/geometry.h
     src/text_buffer.c src/text_buffer.h
     src/pseudo_console.c src/pseudo_console.h
     src/graphics/mesh.c src/graphics/mesh.h
@@ -37,9 +38,7 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(deps/glfw)
 
-add_subdirectory(deps/cglm)
-
-target_link_libraries(Term PRIVATE glfw cglm)
+target_link_libraries(Term PRIVATE glfw)
 
 if(NOT MSVC)
     set_source_files_properties(${TERM_SOURCE_FILES} PROPERTIES COMPILE_FLAGS -Wall -Werror -Wpedantic)

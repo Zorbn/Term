@@ -1,21 +1,20 @@
 #include "sprite_batch.h"
-
-#include <cglm/struct.h>
+#include "../geometry.h"
 
 #define SPRITE_TEXTURE_PADDING 0.01f
 
-const vec3s sprite_vertices[4] = {
-    {{0, 0, 0}},
-    {{0, 1, 0}},
-    {{1, 1, 0}},
-    {{1, 0, 0}},
+const struct Vector3 sprite_vertices[4] = {
+    {0, 0, 0},
+    {0, 1, 0},
+    {1, 1, 0},
+    {1, 0, 0},
 };
 
-const vec2s sprite_uvs[4] = {
-    {{0, 1}},
-    {{0, 0}},
-    {{1, 0}},
-    {{1, 1}},
+const struct Vector2 sprite_uvs[4] = {
+    {0, 1},
+    {0, 0},
+    {1, 0},
+    {1, 1},
 };
 
 const uint32_t sprite_indices[] = {0, 2, 1, 0, 3, 2};
@@ -70,9 +69,9 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
 
             // UV:
             float u = sprite->texture_x + SPRITE_TEXTURE_PADDING +
-                      sprite_uvs[vertex_i].u * (sprite->texture_width - SPRITE_TEXTURE_PADDING);
+                      sprite_uvs[vertex_i].x * (sprite->texture_width - SPRITE_TEXTURE_PADDING);
             float v = sprite->texture_y + SPRITE_TEXTURE_PADDING +
-                      sprite_uvs[vertex_i].v * (sprite->texture_height - SPRITE_TEXTURE_PADDING);
+                      sprite_uvs[vertex_i].y * (sprite->texture_height - SPRITE_TEXTURE_PADDING);
             list_push_float(&sprite_batch->vertices, u * inv_texture_width);
             list_push_float(&sprite_batch->vertices, v * inv_texture_height);
             list_push_float(&sprite_batch->vertices, 0.0f);
