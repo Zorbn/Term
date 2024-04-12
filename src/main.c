@@ -84,13 +84,13 @@ int main(void) {
             break;
         }
 
-        if (read_thread_data.needs_redraw) {
+        if (renderer.needs_redraw) {
             read_thread_data_lock(&read_thread_data);
 
             window_show(&window);
             renderer_draw(&renderer, &grid, window.height, window.glfw_window);
 
-            read_thread_data.needs_redraw = false;
+            renderer.needs_redraw = false;
 
             read_thread_data_unlock(&read_thread_data);
         }
@@ -110,7 +110,12 @@ int main(void) {
         HANDLE handles[2] = {window.pseudo_console.h_process, read_thread_data.event};
         MsgWaitForMultipleObjects(2, handles, false, INFINITE, QS_ALLINPUT);
 
-        glfwPollEvents();
+        read_thread_data_lock(&read_thread_data);
+        {
+            // Some events use the renderer
+            glfwPollEvents();
+        }
+        read_thread_data_unlock(&read_thread_data);
     }
 
     pseudo_console_destroy(&window.pseudo_console);

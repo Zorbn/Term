@@ -18,8 +18,6 @@ struct ReadThreadData {
 
     HANDLE mutex;
     HANDLE event;
-
-    _Atomic(bool) needs_redraw;
 };
 
 struct Reader {

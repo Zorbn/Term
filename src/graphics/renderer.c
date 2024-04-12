@@ -231,6 +231,8 @@ void renderer_scroll_reset(struct Renderer *renderer) {
 
     renderer->scrollback_distance = 0;
     renderer_mark_all_sprite_batches_dirty(renderer);
+
+    renderer->needs_redraw = true;
 }
 
 void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid) {
@@ -252,6 +254,8 @@ void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid
         (renderer->sprite_batch_count - 1) * sizeof(bool));
     // Now the bottom sprite batch is the only one with newly outdated content.
     renderer->are_sprite_batches_dirty[renderer->sprite_batch_count - 1] = true;
+
+    renderer->needs_redraw = true;
 }
 
 void renderer_scroll_up(struct Renderer *renderer, struct Grid *grid) {
@@ -271,6 +275,8 @@ void renderer_scroll_up(struct Renderer *renderer, struct Grid *grid) {
         (renderer->sprite_batch_count - 1) * sizeof(bool));
     // Now the top sprite batch is the only one with newly outdated content.
     renderer->are_sprite_batches_dirty[0] = true;
+
+    renderer->needs_redraw = true;
 }
 
 void renderer_destroy(struct Renderer *renderer) {

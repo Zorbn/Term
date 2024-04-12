@@ -20,7 +20,7 @@ static DWORD WINAPI read_thread_start(void *start_info) {
         text_buffer->length += text_buffer->kept_length;
         text_buffer->kept_length = 0;
 
-        data->needs_redraw = true;
+        renderer->needs_redraw = true;
         SetEvent(data->event);
 
         for (size_t i = 0; i < text_buffer->length;) {

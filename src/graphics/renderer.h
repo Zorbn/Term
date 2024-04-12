@@ -26,6 +26,8 @@ struct Renderer {
     int32_t offset_y_location;
 
     int32_t scrollback_distance;
+
+    _Atomic(bool) needs_redraw;
 };
 
 struct Renderer renderer_create(size_t width, size_t height);
