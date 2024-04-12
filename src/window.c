@@ -392,7 +392,7 @@ void window_update(struct Window *window) {
 }
 
 void window_set_title(struct Window *window, char *title) {
-    // glfwSetWindowTitle(window->glfw_window, title); TODO
+    glfwSetWindowTitle(window->glfw_window, title);
 }
 
 void window_destroy(struct Window *window) {

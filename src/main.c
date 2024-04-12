@@ -33,7 +33,7 @@ int main(void) {
     struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
     window_setup(&window, &grid, &renderer);
 
-    struct ReadThreadData read_thread_data = read_thread_data_create(&grid, &renderer, &window);
+    struct ReadThreadData read_thread_data = read_thread_data_create(&grid, &window.pseudo_console, &renderer);
     struct Reader reader = reader_create(&read_thread_data);
 
     double last_frame_time = glfwGetTime();
@@ -58,9 +58,9 @@ int main(void) {
             renderer_resize(&renderer, new_grid_width, new_grid_height, window.scale);
             grid_resize(window.grid, new_grid_width, new_grid_height);
 
-            window.did_resize = false;
-
             read_thread_data_unlock(&read_thread_data);
+
+            window.did_resize = false;
         }
 
         double current_frame_time = glfwGetTime();
@@ -84,13 +84,23 @@ int main(void) {
             break;
         }
 
-        if (window.needs_redraw) {
+        if (read_thread_data.needs_redraw) {
             read_thread_data_lock(&read_thread_data);
 
             window_show(&window);
             renderer_draw(&renderer, &grid, window.height, window.glfw_window);
 
-            window.needs_redraw = false;
+            read_thread_data.needs_redraw = false;
+
+            read_thread_data_unlock(&read_thread_data);
+        }
+
+        if (read_thread_data.title_buffer.is_dirty) {
+            read_thread_data_lock(&read_thread_data);
+
+            window_set_title(&window, read_thread_data.title_buffer.data);
+
+            read_thread_data.title_buffer.is_dirty = false;
 
             read_thread_data_unlock(&read_thread_data);
         }

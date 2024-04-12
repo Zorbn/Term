@@ -32,6 +32,11 @@
 struct Window;
 void window_set_title(struct Window *window, char *title);
 
+struct TitleBuffer {
+    char data[256];
+    _Atomic(bool) is_dirty;
+};
+
 enum GridMouseMode {
     GRID_MOUSE_MODE_NONE,
     GRID_MOUSE_MODE_BUTTON,
@@ -90,7 +95,7 @@ void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y);
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y);
 enum GridMouseMode grid_get_mouse_mode(struct Grid *grid);
 bool grid_parse_escape_sequence(
-    struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, size_t *furthest_i, struct Window *window);
+    struct Grid *grid, struct TextBuffer *text_buffer, struct TitleBuffer *title_buffer, size_t *i, size_t *furthest_i);
 void grid_destroy(struct Grid *grid);
 
 inline void grid_set_char_i(struct Grid *grid, int32_t i, char character) {

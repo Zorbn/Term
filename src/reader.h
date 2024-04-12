@@ -3,7 +3,6 @@
 
 #include "graphics/renderer.h"
 #include "pseudo_console.h"
-#include "window.h"
 #include "grid.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -11,18 +10,23 @@
 
 struct ReadThreadData {
     struct Grid *grid;
+    struct PseudoConsole *pseudo_console;
     struct Renderer *renderer;
-    struct Window *window;
+
     struct TextBuffer text_buffer;
+    struct TitleBuffer title_buffer;
+
     HANDLE mutex;
     HANDLE event;
+
+    _Atomic(bool) needs_redraw;
 };
 
 struct Reader {
     HANDLE read_thread;
 };
 
-struct ReadThreadData read_thread_data_create(struct Grid *grid, struct Renderer *renderer, struct Window *window);
+struct ReadThreadData read_thread_data_create(struct Grid *grid, struct PseudoConsole *pseudo_console, struct Renderer *renderer);
 void read_thread_data_destroy(struct ReadThreadData *read_thread_data);
 void read_thread_data_lock(struct ReadThreadData *read_thread_data);
 void read_thread_data_unlock(struct ReadThreadData *read_thread_data);

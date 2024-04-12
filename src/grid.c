@@ -594,7 +594,7 @@ enum GridMouseMode grid_get_mouse_mode(struct Grid *grid) {
 
 // Returns true if an escape sequence was parsed.
 bool grid_parse_escape_sequence(
-    struct Grid *grid, struct TextBuffer *text_buffer, size_t *i, size_t *furthest_i, struct Window *window) {
+    struct Grid *grid, struct TextBuffer *text_buffer, struct TitleBuffer *title_buffer, size_t *i, size_t *furthest_i) {
 
     size_t start_i = *i;
     if (!text_buffer_match_char(text_buffer, '\x1b', i)) {
@@ -645,14 +645,11 @@ bool grid_parse_escape_sequence(
                 // Set window title.
                 case '0':
                 case '2': {
-                    size_t title_string_length = command_length + 1;
-                    char *title = malloc(title_string_length);
-                    memcpy(title, text_buffer->data + *i, command_length);
-                    title[command_length] = '\0';
-
-                    window_set_title(window, title);
-
-                    free(title);
+                    if (title_buffer) {
+                        memcpy(title_buffer->data, text_buffer->data + *i, command_length);
+                        title_buffer->data[command_length] = '\0';
+                        title_buffer->is_dirty = true;
+                    }
 
                     break;
                 }

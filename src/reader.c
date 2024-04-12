@@ -7,8 +7,7 @@ static DWORD WINAPI read_thread_start(void *start_info) {
 
     struct Grid *grid = data->grid;
     struct Renderer *renderer = data->renderer;
-    struct Window *window = data->window;
-    struct PseudoConsole *pseudo_console = &window->pseudo_console;
+    struct PseudoConsole *pseudo_console = data->pseudo_console;
     struct TextBuffer *text_buffer = &data->text_buffer;
 
     while (true) {
@@ -21,7 +20,7 @@ static DWORD WINAPI read_thread_start(void *start_info) {
         text_buffer->length += text_buffer->kept_length;
         text_buffer->kept_length = 0;
 
-        window->needs_redraw = true;
+        data->needs_redraw = true;
         SetEvent(data->event);
 
         for (size_t i = 0; i < text_buffer->length;) {
@@ -48,7 +47,7 @@ static DWORD WINAPI read_thread_start(void *start_info) {
             // is omitted for colors, it is assumed to be 0, if <x,y,n> are omitted for positioning, they
             // are assumed to be 1.
             size_t furthest_i = 0;
-            if (grid_parse_escape_sequence(grid, text_buffer, &i, &furthest_i, window)) {
+            if (grid_parse_escape_sequence(grid, text_buffer, &data->title_buffer, &i, &furthest_i)) {
                 continue;
             } else if (furthest_i >= text_buffer->length && i < text_buffer->length) {
                 // The parse failed due to reaching the end of the buffer, the sequence may have been split
@@ -98,11 +97,11 @@ static DWORD WINAPI read_thread_start(void *start_info) {
     return 0;
 }
 
-struct ReadThreadData read_thread_data_create(struct Grid *grid, struct Renderer *renderer, struct Window *window) {
+struct ReadThreadData read_thread_data_create(struct Grid *grid, struct PseudoConsole *pseudo_console, struct Renderer *renderer) {
     struct ReadThreadData read_thread_data = (struct ReadThreadData){
         .grid = grid,
+        .pseudo_console = pseudo_console,
         .renderer = renderer,
-        .window = window,
         .text_buffer = text_buffer_create(),
         .mutex = CreateMutex(NULL, false, NULL),
         .event = CreateEvent(NULL, false, false, NULL),
