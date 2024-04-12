@@ -30,7 +30,7 @@ int main(void) {
 
     struct PseudoConsole pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
     struct Renderer renderer = renderer_create(grid_width, grid_height);
-    struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
+    struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed_callback);
 
     window_setup(&window, &pseudo_console, &grid, &renderer);
 
@@ -108,12 +108,12 @@ int main(void) {
 
         window_update(&window);
 
+        // Pause until we get an update from the pseudo console, the reader, or window input.
         HANDLE handles[2] = {pseudo_console.h_process, read_thread_data.event};
         MsgWaitForMultipleObjects(2, handles, false, INFINITE, QS_ALLINPUT);
 
         read_thread_data_lock(&read_thread_data);
         {
-            // Some events use the renderer
             glfwPollEvents();
         }
         read_thread_data_unlock(&read_thread_data);

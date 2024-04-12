@@ -433,6 +433,11 @@ void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
     grid_set_char_i(grid, i, character);
 }
 
+void grid_set_cursor_style(struct Grid *grid, enum GridCursorStyle cursor_style) {
+    grid->cursor_style = cursor_style;
+    grid->on_row_changed(grid->callback_context, grid->cursor_y);
+}
+
 void grid_scroll_down(struct Grid *grid) {
     // Save the first row into the scrollback buffer.
     grid_push_line_to_scrollback(grid, 0);
@@ -727,8 +732,26 @@ bool grid_parse_escape_sequence(
 
         // Cursor shape:
         if (text_buffer_match_char(text_buffer, ' ', i)) {
-            if (text_buffer_match_char(text_buffer, 'q', i)) {
-                // TODO: Change cursor shape.
+            if (text_buffer_match_char(text_buffer, 'q', i) && parsed_number_count == 1) {
+                switch (parsed_numbers[0]) {
+                    case 0:
+                    case 1:
+                    case 2: {
+                        grid_set_cursor_style(grid, GRID_CURSOR_STYLE_BLOCK);
+                        break;
+                    }
+                    case 3:
+                    case 4: {
+                        grid_set_cursor_style(grid, GRID_CURSOR_STYLE_UNDERLINE);
+                        break;
+                    }
+                    case 5:
+                    case 6: {
+                        grid_set_cursor_style(grid, GRID_CURSOR_STYLE_BAR);
+                        break;
+                    }
+                }
+
                 return true;
             }
 

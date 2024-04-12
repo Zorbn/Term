@@ -35,6 +35,12 @@ struct TitleBuffer {
     _Atomic(bool) is_dirty;
 };
 
+enum GridCursorStyle {
+    GRID_CURSOR_STYLE_BLOCK,
+    GRID_CURSOR_STYLE_UNDERLINE,
+    GRID_CURSOR_STYLE_BAR,
+};
+
 enum GridMouseMode {
     GRID_MOUSE_MODE_NONE,
     GRID_MOUSE_MODE_BUTTON,
@@ -72,6 +78,8 @@ struct Grid {
     bool has_mouse_mode_drag;
     bool has_mouse_mode_any;
 
+    enum GridCursorStyle cursor_style;
+
     uint32_t *background_colors;
     uint32_t *foreground_colors;
 
@@ -88,6 +96,7 @@ struct Grid grid_create(
     size_t width, size_t height, void *callback_context, void (*on_row_changed)(void *context, int32_t y));
 void grid_resize(struct Grid *grid, size_t width, size_t height);
 void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character);
+void grid_set_cursor_style(struct Grid *grid, enum GridCursorStyle cursor_style);
 void grid_scroll_down(struct Grid *grid);
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y);
 void grid_cursor_move(struct Grid *grid, int32_t delta_x, int32_t delta_y);

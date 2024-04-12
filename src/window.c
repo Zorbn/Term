@@ -28,6 +28,13 @@ static void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, in
     renderer_draw(window->renderer, window->grid, height, window);
 }
 
+static void focused_callback(GLFWwindow *glfw_window, int32_t is_focused) {
+    struct Window *window = glfwGetWindowUserPointer(glfw_window);
+
+    window->is_focused = is_focused;
+    renderer_on_row_changed(window->renderer, window->grid->cursor_y);
+}
+
 static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     renderer_scroll_reset(window->renderer);
@@ -388,6 +395,7 @@ void window_setup(struct Window *window, struct PseudoConsole *pseudo_console, s
 
     glfwSetFramebufferSizeCallback(window->glfw_window, framebuffer_size_callback);
     framebuffer_size_callback(window->glfw_window, window->width, window->height);
+    glfwSetWindowFocusCallback(window->glfw_window, focused_callback);
     glfwSetMouseButtonCallback(window->glfw_window, mouse_button_callback);
     glfwSetCursorPosCallback(window->glfw_window, mouse_move_callback);
     glfwSetScrollCallback(window->glfw_window, mouse_scroll_callback);

@@ -25,6 +25,7 @@ struct Window {
     int32_t refresh_rate;
     bool did_resize;
     bool is_visible;
+    bool is_focused;
 
     struct Input input;
     // TODO: Move to input struct:

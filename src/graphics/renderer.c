@@ -23,8 +23,12 @@ struct Renderer renderer_create(size_t width, size_t height) {
     return renderer;
 }
 
-void renderer_on_row_changed(void *context, int32_t y) {
+void renderer_on_row_changed_callback(void *context, int32_t y) {
     struct Renderer *renderer = context;
+    renderer_on_row_changed(renderer, y);
+}
+
+void renderer_on_row_changed(struct Renderer *renderer, int32_t y) {
     int32_t sprite_batch_y = y + renderer->scrollback_distance;
 
     if (sprite_batch_y >= renderer->sprite_batch_count) {
@@ -32,6 +36,7 @@ void renderer_on_row_changed(void *context, int32_t y) {
     }
 
     renderer->are_sprite_batches_dirty[sprite_batch_y] = true;
+    renderer->needs_redraw = true;
 }
 
 static int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
@@ -83,6 +88,40 @@ static void renderer_draw_box(struct SpriteBatch *sprite_batch, int32_t x, int32
                                    });
 }
 
+static void renderer_draw_bar(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
+    sprite_batch_add(sprite_batch, (struct Sprite){
+                                       .x = x * FONT_GLYPH_WIDTH * scale,
+                                       .z = z * scale,
+                                       .width = FONT_LINE_WIDTH * scale,
+                                       .height = FONT_GLYPH_HEIGHT * scale,
+
+                                       .texture_x = 0,
+                                       .texture_width = FONT_GLYPH_WIDTH,
+                                       .texture_height = FONT_GLYPH_HEIGHT,
+
+                                       .r = r,
+                                       .g = g,
+                                       .b = b,
+                                   });
+}
+
+static void renderer_draw_underline(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
+    sprite_batch_add(sprite_batch, (struct Sprite){
+                                       .x = x * FONT_GLYPH_WIDTH * scale,
+                                       .z = z * (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
+                                       .width = FONT_GLYPH_WIDTH * scale,
+                                       .height = FONT_LINE_WIDTH * scale,
+
+                                       .texture_x = 0,
+                                       .texture_width = FONT_GLYPH_WIDTH,
+                                       .texture_height = FONT_GLYPH_HEIGHT,
+
+                                       .r = r,
+                                       .g = g,
+                                       .b = b,
+                                   });
+}
+
 static void renderer_draw_tile(char character, struct Color foreground_color, struct Color background_color,
     struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
 
@@ -98,10 +137,23 @@ static void renderer_draw_cursor(
         x = grid->width - 1;
     }
 
-    renderer_draw_box(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
+    switch (grid->cursor_style) {
+        case GRID_CURSOR_STYLE_BLOCK: {
+            renderer_draw_box(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
 
-    char character = grid->data[x + y * grid->width];
-    renderer_draw_character(character, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
+            char character = grid->data[x + y * grid->width];
+            renderer_draw_character(character, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
+            break;
+        }
+        case GRID_CURSOR_STYLE_UNDERLINE: {
+            renderer_draw_underline(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
+            break;
+        }
+        case GRID_CURSOR_STYLE_BAR: {
+            renderer_draw_bar(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
+            break;
+        }
+    }
 }
 
 static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
@@ -135,7 +187,7 @@ static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *gri
     }
 }
 
-static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count, bool do_draw_cursor) {
     for (size_t y = visible_scrollback_line_count; y < renderer->sprite_batch_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
             continue;
@@ -157,7 +209,7 @@ static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int
                 character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
 
-        if (grid->should_show_cursor && grid_y == grid->cursor_y) {
+        if (do_draw_cursor && grid->should_show_cursor && grid_y == grid->cursor_y) {
             renderer_draw_cursor(grid, sprite_batch, grid->cursor_x, grid->cursor_y, 2, renderer->scale);
         }
 
@@ -175,7 +227,7 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
 
     int32_t visible_scrollback_line_count = renderer_get_visible_scrollback_line_count(renderer);
     renderer_draw_scrollback(renderer, grid, visible_scrollback_line_count);
-    renderer_draw_grid(renderer, grid, visible_scrollback_line_count);
+    renderer_draw_grid(renderer, grid, visible_scrollback_line_count, window->is_focused);
 
     for (size_t y = 0; y < renderer->sprite_batch_count; y++) {
         struct SpriteBatch *sprite_batch = &renderer->sprite_batches[y];
@@ -197,6 +249,8 @@ static void renderer_mark_all_sprite_batches_dirty(struct Renderer *renderer) {
     for (size_t i = 0; i < renderer->sprite_batch_count; i++) {
         renderer->are_sprite_batches_dirty[i] = true;
     }
+
+    renderer->needs_redraw = true;
 }
 
 void renderer_resize(struct Renderer *renderer, size_t width, size_t height, float scale) {
@@ -230,8 +284,6 @@ void renderer_scroll_reset(struct Renderer *renderer) {
 
     renderer->scrollback_distance = 0;
     renderer_mark_all_sprite_batches_dirty(renderer);
-
-    renderer->needs_redraw = true;
 }
 
 void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid) {

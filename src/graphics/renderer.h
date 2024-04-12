@@ -31,7 +31,8 @@ struct Renderer {
 };
 
 struct Renderer renderer_create(size_t width, size_t height);
-void renderer_on_row_changed(void *context, int32_t y);
+void renderer_on_row_changed_callback(void *context, int32_t y);
+void renderer_on_row_changed(struct Renderer *renderer, int32_t y);
 void renderer_on_push_scrollback_line(void *context);
 void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, struct Window *window);
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height);
