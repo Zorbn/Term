@@ -52,6 +52,10 @@ uint32_t program_create(char *vertex_path, char *fragment_path) {
     return program;
 }
 
+void program_destroy(uint32_t program) {
+	glDeleteProgram(program);
+}
+
 struct Texture texture_create(char *file_path) {
     uint32_t texture;
     glGenTextures(1, &texture);
@@ -81,43 +85,6 @@ struct Texture texture_create(char *file_path) {
     };
 }
 
-struct TextureArray texture_array_create(char **file_paths, size_t file_count, int32_t width, int32_t height) {
-    uint32_t texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
-
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    for (size_t i = 0; i < file_count; i++) {
-        int texture_width, texture_height, channel_count;
-        uint8_t *data = stbi_load(file_paths[i], &texture_width, &texture_height, &channel_count, 4);
-        if (!data) {
-            printf("Failed to load texture: %s\n", file_paths[i]);
-            exit(-1);
-        } else if (texture_width != width || texture_height != height) {
-            printf("Texture is wrong size for array: %s\n", file_paths[i]);
-            exit(-1);
-        }
-
-        if (i == 0) {
-            glTexImage3D(
-                GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, width, height, file_count, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        }
-
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
-        stbi_image_free(data);
-    }
-
-    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
-
-    return (struct TextureArray){
-        .id = texture,
-        .width = width,
-        .height = height,
-        .layer_count = file_count,
-    };
+void texture_destroy(struct Texture *texture) {
+    glDeleteTextures(1, &texture->id);
 }

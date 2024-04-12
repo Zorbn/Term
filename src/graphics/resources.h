@@ -20,8 +20,11 @@ struct TextureArray {
 };
 
 uint32_t shader_create(char *file_path, GLenum shader_type);
+
 uint32_t program_create(char *vertex_path, char *fragment_path);
+void program_destroy(uint32_t program);
+
 struct Texture texture_create(char *file_path);
-struct TextureArray texture_array_create(char **file_paths, size_t file_count, int32_t width, int32_t height);
+void texture_destroy(struct Texture *texture);
 
 #endif

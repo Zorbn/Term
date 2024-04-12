@@ -12,7 +12,6 @@ struct Renderer renderer_create(size_t width, size_t height) {
         .background_color = color_from_hex(GRID_COLOR_BACKGROUND_DEFAULT),
 
         .program = program_create("assets/shader_2d.vert", "assets/shader_2d.frag"),
-        // TODO: Add texture_bind and texture_destroy
         .texture_atlas = texture_create("assets/texture_atlas.png"),
     };
 
@@ -283,8 +282,10 @@ void renderer_destroy(struct Renderer *renderer) {
     for (size_t i = 0; i < renderer->sprite_batch_count; i++) {
         sprite_batch_destroy(&renderer->sprite_batches[i]);
     }
+
     free(renderer->sprite_batches);
     free(renderer->are_sprite_batches_dirty);
 
-    glDeleteTextures(1, &renderer->texture_atlas.id);
+	texture_destroy(&renderer->texture_atlas);
+	program_destroy(renderer->program);
 }
