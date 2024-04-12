@@ -33,15 +33,7 @@ int main(void) {
     struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
     window_setup(&window, &grid, &renderer);
 
-    struct ReadThreadData read_thread_data = (struct ReadThreadData){
-        .grid = &grid,
-        .renderer = &renderer,
-        .window = &window,
-        .mutex = CreateMutex(NULL, false, NULL),
-        .event = CreateEvent(NULL, false, false, NULL),
-    };
-    assert(read_thread_data.mutex);
-
+    struct ReadThreadData read_thread_data = read_thread_data_create(&grid, &renderer, &window);
     struct Reader reader = reader_create(&read_thread_data);
 
     double last_frame_time = glfwGetTime();
@@ -60,7 +52,7 @@ int main(void) {
                 new_grid_height = 1;
             }
 
-            WaitForSingleObject(read_thread_data.mutex, INFINITE);
+            read_thread_data_lock(&read_thread_data);
 
             pseudo_console_resize(&window.pseudo_console, new_grid_width, new_grid_height);
             renderer_resize(&renderer, new_grid_width, new_grid_height, window.scale);
@@ -68,7 +60,7 @@ int main(void) {
 
             window.did_resize = false;
 
-            ReleaseMutex(read_thread_data.mutex);
+            read_thread_data_unlock(&read_thread_data);
         }
 
         double current_frame_time = glfwGetTime();
@@ -93,25 +85,27 @@ int main(void) {
         }
 
         if (window.needs_redraw) {
-            WaitForSingleObject(read_thread_data.mutex, INFINITE);
+            read_thread_data_lock(&read_thread_data);
 
             window_show(&window);
             renderer_draw(&renderer, &grid, window.height, window.glfw_window);
 
             window.needs_redraw = false;
 
-            ReleaseMutex(read_thread_data.mutex);
+            read_thread_data_unlock(&read_thread_data);
         }
 
         window_update(&window);
 
-        MsgWaitForMultipleObjects(1, &read_thread_data.event, false, INFINITE, QS_ALLINPUT);
+        HANDLE handles[2] = {window.pseudo_console.h_process, read_thread_data.event};
+        MsgWaitForMultipleObjects(2, handles, false, INFINITE, QS_ALLINPUT);
 
         glfwPollEvents();
     }
 
     pseudo_console_destroy(&window.pseudo_console);
-    reader_destroy(&reader, &read_thread_data);
+    reader_destroy(&reader);
+    read_thread_data_destroy(&read_thread_data);
     window_destroy(&window);
     grid_destroy(&grid);
     renderer_destroy(&renderer);
