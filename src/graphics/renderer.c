@@ -13,6 +13,8 @@ struct Renderer renderer_create(size_t width, size_t height) {
 
         .program = program_create("assets/shader_2d.vert", "assets/shader_2d.frag"),
         .texture_atlas = texture_create("assets/texture_atlas.png"),
+
+        .needs_redraw = true,
     };
 
     renderer.projection_matrix_location = glGetUniformLocation(renderer.program, "projection_matrix");
