@@ -1,6 +1,7 @@
 #ifndef GRID_H
 #define GRID_H
 
+#include "window.h"
 #include "text_buffer.h"
 #include "list.h"
 
@@ -28,9 +29,6 @@
 #define GRID_COLOR_BRIGHT_MAGENTA 0xb4009e
 #define GRID_COLOR_BRIGHT_CYAN 0x61d6d6
 #define GRID_COLOR_BRIGHT_WHITE 0xf2f2f2
-
-struct Window;
-void window_set_title(struct Window *window, char *title);
 
 struct TitleBuffer {
     char data[256];

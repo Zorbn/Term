@@ -2,6 +2,8 @@
 
 #include "GLFW/glfw3.h"
 #include "font.h"
+#include "pseudo_console.h"
+#include "grid.h"
 #include "graphics/renderer.h"
 
 #include <stdio.h>
@@ -23,7 +25,7 @@ static void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, in
     window->did_resize = true;
 
     renderer_resize_viewport(window->renderer, width, height);
-    renderer_draw(window->renderer, window->grid, height, glfw_window);
+    renderer_draw(window->renderer, window->grid, height, window);
 }
 
 static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
@@ -398,6 +400,10 @@ void window_update(struct Window *window) {
 
 void window_set_title(struct Window *window, char *title) {
     glfwSetWindowTitle(window->glfw_window, title);
+}
+
+void window_swap_buffers(struct Window *window) {
+	glfwSwapBuffers(window->glfw_window);
 }
 
 void window_destroy(struct Window *window) {

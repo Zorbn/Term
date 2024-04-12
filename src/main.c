@@ -89,7 +89,7 @@ int main(void) {
             read_thread_data_lock(&read_thread_data);
 
             window_show(&window);
-            renderer_draw(&renderer, &grid, window.height, window.glfw_window);
+            renderer_draw(&renderer, &grid, window.height, &window);
 
             renderer.needs_redraw = false;
 

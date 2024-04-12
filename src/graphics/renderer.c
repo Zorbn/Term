@@ -165,7 +165,7 @@ static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int
     }
 }
 
-void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, GLFWwindow *glfw_window) {
+void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, struct Window *window) {
     glClearColor(renderer->background_color.r, renderer->background_color.g, renderer->background_color.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -185,7 +185,7 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
         sprite_batch_draw(sprite_batch);
     }
 
-    glfwSwapBuffers(glfw_window);
+	window_swap_buffers(window);
 }
 
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height) {
