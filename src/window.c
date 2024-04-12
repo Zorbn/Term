@@ -295,10 +295,14 @@ static void mouse_scroll_callback(GLFWwindow *glfw_window, double scroll_x, doub
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
 
     if (grid_get_mouse_mode(window->grid) == GRID_MOUSE_MODE_NONE) {
-        if (scroll_y < 0) {
-            renderer_scroll_down(window->renderer, false);
-        } else if (scroll_y > 0) {
-            renderer_scroll_up(window->renderer, window->grid);
+        const int32_t scroll_distance = 3;
+
+        for (int32_t i = 0; i < scroll_distance; i++) {
+            if (scroll_y < 0) {
+                renderer_scroll_down(window->renderer, false);
+            } else if (scroll_y > 0) {
+                renderer_scroll_up(window->renderer, window->grid);
+            }
         }
 
         return;
