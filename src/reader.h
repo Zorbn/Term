@@ -9,8 +9,8 @@
 #include <windows.h>
 
 struct ReadThreadData {
-    struct Grid *grid;
     struct PseudoConsole *pseudo_console;
+    struct Grid *grid;
     struct Renderer *renderer;
 
     struct TextBuffer text_buffer;
@@ -24,7 +24,7 @@ struct Reader {
     HANDLE read_thread;
 };
 
-struct ReadThreadData read_thread_data_create(struct Grid *grid, struct PseudoConsole *pseudo_console, struct Renderer *renderer);
+struct ReadThreadData read_thread_data_create(struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer);
 void read_thread_data_destroy(struct ReadThreadData *read_thread_data);
 void read_thread_data_lock(struct ReadThreadData *read_thread_data);
 void read_thread_data_unlock(struct ReadThreadData *read_thread_data);

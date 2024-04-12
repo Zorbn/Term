@@ -32,14 +32,14 @@ struct Window {
     uint32_t mouse_tile_x;
     uint32_t mouse_tile_y;
 
-    struct PseudoConsole pseudo_console; // TODO: Is this going to stay here? If it is initialize it in window_create.
+    struct PseudoConsole *pseudo_console;
     struct Grid *grid;
     struct Renderer *renderer;
 };
 
 struct Window window_create(char *title, int32_t width, int32_t height);
 void window_show(struct Window *window);
-void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer);
+void window_setup(struct Window *window, struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer);
 void window_set_title(struct Window *window, char *title);
 void window_update(struct Window *window);
 void window_destroy(struct Window *window);

@@ -27,13 +27,14 @@ int main(void) {
 
     const int32_t grid_width = window.width / FONT_GLYPH_WIDTH;
     const int32_t grid_height = window.height / FONT_GLYPH_HEIGHT;
-    window.pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
 
+    struct PseudoConsole pseudo_console = pseudo_console_create((COORD){grid_width, grid_height});
     struct Renderer renderer = renderer_create(grid_width, grid_height);
     struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed);
-    window_setup(&window, &grid, &renderer);
 
-    struct ReadThreadData read_thread_data = read_thread_data_create(&grid, &window.pseudo_console, &renderer);
+    window_setup(&window, &pseudo_console, &grid, &renderer);
+
+    struct ReadThreadData read_thread_data = read_thread_data_create(&pseudo_console, &grid, &renderer);
     struct Reader reader = reader_create(&read_thread_data);
 
     double last_frame_time = glfwGetTime();
@@ -54,7 +55,7 @@ int main(void) {
 
             read_thread_data_lock(&read_thread_data);
 
-            pseudo_console_resize(&window.pseudo_console, new_grid_width, new_grid_height);
+            pseudo_console_resize(&pseudo_console, new_grid_width, new_grid_height);
             renderer_resize(&renderer, new_grid_width, new_grid_height, window.scale);
             grid_resize(window.grid, new_grid_width, new_grid_height);
 
@@ -76,11 +77,11 @@ int main(void) {
 
         if (window.typed_chars.length > 0) {
             CHAR *typed_chars = (CHAR *)window.typed_chars.data;
-            WriteFile(window.pseudo_console.input, typed_chars, window.typed_chars.length, NULL, NULL);
+            WriteFile(pseudo_console.input, typed_chars, window.typed_chars.length, NULL, NULL);
         }
 
         // Exit when the process we're reading from exits.
-        if (WaitForSingleObject(window.pseudo_console.h_process, 0) != WAIT_TIMEOUT) {
+        if (WaitForSingleObject(pseudo_console.h_process, 0) != WAIT_TIMEOUT) {
             break;
         }
 
@@ -107,7 +108,7 @@ int main(void) {
 
         window_update(&window);
 
-        HANDLE handles[2] = {window.pseudo_console.h_process, read_thread_data.event};
+        HANDLE handles[2] = {pseudo_console.h_process, read_thread_data.event};
         MsgWaitForMultipleObjects(2, handles, false, INFINITE, QS_ALLINPUT);
 
         read_thread_data_lock(&read_thread_data);
@@ -118,7 +119,7 @@ int main(void) {
         read_thread_data_unlock(&read_thread_data);
     }
 
-    pseudo_console_destroy(&window.pseudo_console);
+    pseudo_console_destroy(&pseudo_console);
     reader_destroy(&reader);
     read_thread_data_destroy(&read_thread_data);
     window_destroy(&window);

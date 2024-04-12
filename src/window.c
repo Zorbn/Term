@@ -375,7 +375,8 @@ void window_show(struct Window *window) {
     window->is_visible = true;
 }
 
-void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer) {
+void window_setup(struct Window *window, struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer) {
+    window->pseudo_console = pseudo_console;
     window->grid = grid;
     window->renderer = renderer;
 

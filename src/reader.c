@@ -97,10 +97,10 @@ static DWORD WINAPI read_thread_start(void *start_info) {
     return 0;
 }
 
-struct ReadThreadData read_thread_data_create(struct Grid *grid, struct PseudoConsole *pseudo_console, struct Renderer *renderer) {
+struct ReadThreadData read_thread_data_create(struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer) {
     struct ReadThreadData read_thread_data = (struct ReadThreadData){
-        .grid = grid,
         .pseudo_console = pseudo_console,
+        .grid = grid,
         .renderer = renderer,
         .text_buffer = text_buffer_create(),
         .mutex = CreateMutex(NULL, false, NULL),
