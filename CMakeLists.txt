@@ -17,6 +17,7 @@ set (
     src/color.c src/color.h
     src/reader.c src/reader.h
     src/geometry.c src/geometry.h
+    src/selection.c src/selection.h
     src/text_buffer.c src/text_buffer.h
     src/pseudo_console.c src/pseudo_console.h
     src/graphics/mesh.c src/graphics/mesh.h

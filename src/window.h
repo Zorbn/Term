@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 
 #include "input.h"
+#include "selection.h"
 
 #include <stdbool.h>
 
@@ -33,6 +34,9 @@ struct Window {
     struct List_uint8_t typed_chars;
     uint32_t mouse_tile_x;
     uint32_t mouse_tile_y;
+
+    struct Selection selection;
+    bool has_selection;
 
     struct PseudoConsole *pseudo_console;
     struct Grid *grid;

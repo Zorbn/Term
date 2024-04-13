@@ -2,6 +2,7 @@
 
 #include "color.h"
 #include "font.h"
+#include "geometry.h"
 
 #include <math.h>
 
@@ -297,9 +298,13 @@ struct Grid grid_create(
 // Get the length of a line without trailing whitespace.
 size_t grid_get_occupied_line_length(struct Grid *grid, size_t y) {
     size_t line_length = 0;
-    for (int32_t i = grid->width - 1; i >= 0; i--) {
-        if (grid->data[i + y * grid->width] != ' ') {
-            line_length = i + 1;
+    for (int32_t x = grid->width - 1; x >= 0; x--) {
+        int32_t i = x + y * grid->width;
+
+        if (grid->data[i] != ' ' || grid->foreground_colors[i] != GRID_COLOR_FOREGROUND_DEFAULT ||
+            grid->background_colors[i] != GRID_COLOR_BACKGROUND_DEFAULT) {
+
+            line_length = x + 1;
             break;
         }
     }
@@ -355,13 +360,13 @@ void grid_resize_update_scrollback(struct Grid *grid, size_t width, size_t heigh
     size_t occupied_grid_height = grid_get_occupied_height(grid);
     for (size_t y = 0; y < occupied_grid_height; y++) {
         size_t occupied_line_length = grid_get_occupied_line_length(grid, y);
-        wrapped_line_count += max((int32_t)ceilf(occupied_line_length / (float)width), 1);
+        wrapped_line_count += int32_max((int32_t)ceilf(occupied_line_length / (float)width), 1);
     }
 
     int32_t excess_line_count = wrapped_line_count - height;
     for (int32_t y = 0; excess_line_count > 0; y++) {
         int32_t occupied_line_length = grid_get_occupied_line_length(grid, y);
-        int32_t line_wrapped_line_count = max((int32_t)ceilf(occupied_line_length / (float)width), 1);
+        int32_t line_wrapped_line_count = int32_max((int32_t)ceilf(occupied_line_length / (float)width), 1);
 
         // The whole line is excess.
         if (excess_line_count >= line_wrapped_line_count) {
@@ -997,8 +1002,8 @@ static bool grid_parse_cursor_positioning(struct Grid *grid, struct TextBuffer *
     return false;
 }
 
-static bool grid_parse_text_modification(struct Grid *grid, struct TextBuffer *text_buffer,
-    uint32_t parsed_numbers[16], size_t parsed_number_count, size_t *i) {
+static bool grid_parse_text_modification(struct Grid *grid, struct TextBuffer *text_buffer, uint32_t parsed_numbers[16],
+    size_t parsed_number_count, size_t *i) {
 
     uint32_t n = parsed_numbers[0];
 

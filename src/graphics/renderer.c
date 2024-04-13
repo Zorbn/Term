@@ -41,6 +41,20 @@ void renderer_on_row_changed(struct Renderer *renderer, int32_t y) {
     renderer->needs_redraw = true;
 }
 
+void renderer_on_selection_changed(
+    struct Renderer *renderer, struct Selection *old_selection, struct Selection *new_selection) {
+
+    struct Selection sorted_old_selection = selection_sorted(old_selection);
+    struct Selection sorted_new_selection = selection_sorted(new_selection);
+
+    int32_t min_y = int32_min(sorted_old_selection.start_y, sorted_new_selection.start_y);
+    int32_t max_y = int32_max(sorted_old_selection.end_y, sorted_new_selection.end_y);
+
+    for (int32_t y = min_y; y <= max_y; y++) {
+        renderer_on_row_changed(renderer, y - renderer->scrollback_distance);
+    }
+}
+
 static int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
     int32_t visible_scrollback_line_count = renderer->scrollback_distance;
     if (visible_scrollback_line_count > renderer->sprite_batch_count) {
@@ -73,7 +87,8 @@ static void renderer_draw_character(char character, struct SpriteBatch *sprite_b
                                    });
 }
 
-static void renderer_draw_box(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
+static void renderer_draw_box(
+    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * FONT_GLYPH_WIDTH * scale,
                                        .z = z * scale,
@@ -90,7 +105,8 @@ static void renderer_draw_box(struct SpriteBatch *sprite_batch, int32_t x, int32
                                    });
 }
 
-static void renderer_draw_bar(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
+static void renderer_draw_bar(
+    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * FONT_GLYPH_WIDTH * scale,
                                        .z = z * scale,
@@ -107,7 +123,8 @@ static void renderer_draw_bar(struct SpriteBatch *sprite_batch, int32_t x, int32
                                    });
 }
 
-static void renderer_draw_underline(struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
+static void renderer_draw_underline(
+    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
     sprite_batch_add(sprite_batch, (struct Sprite){
                                        .x = x * FONT_GLYPH_WIDTH * scale,
                                        .z = z * (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
@@ -158,7 +175,11 @@ static void renderer_draw_cursor(
     }
 }
 
-static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid,
+    int32_t visible_scrollback_line_count, struct Selection *selection, bool do_draw_selection) {
+
+    struct Selection sorted_selection = selection_sorted(selection);
+
     for (size_t y = 0; y < visible_scrollback_line_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
             continue;
@@ -175,12 +196,25 @@ static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *gri
             scrollback_line_length = grid->width;
         }
 
-        for (size_t x = 0; x < scrollback_line_length; x++) {
-            char character = grid->scrollback_lines.data[scrollback_y].data[x];
-            struct Color background_color =
-                color_from_hex(grid->scrollback_lines.data[scrollback_y].background_colors[x]);
-            struct Color foreground_color =
-                color_from_hex(grid->scrollback_lines.data[scrollback_y].foreground_colors[x]);
+        for (size_t x = 0; x < grid->width; x++) {
+            char character = ' ';
+            uint32_t background_hex_color = GRID_COLOR_BACKGROUND_DEFAULT;
+            uint32_t foreground_hex_color = GRID_COLOR_FOREGROUND_DEFAULT;
+
+            if (x < scrollback_line_length) {
+                character = grid->scrollback_lines.data[scrollback_y].data[x];
+                background_hex_color = grid->scrollback_lines.data[scrollback_y].background_colors[x];
+                foreground_hex_color = grid->scrollback_lines.data[scrollback_y].foreground_colors[x];
+            }
+
+            struct Color background_color = color_from_hex(background_hex_color);
+            struct Color foreground_color = color_from_hex(foreground_hex_color);
+
+            if (do_draw_selection && selection_contains_point(&sorted_selection, x, y)) {
+                struct Color old_background_color = background_color;
+                background_color = foreground_color;
+                foreground_color = old_background_color;
+            }
 
             renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
@@ -189,7 +223,11 @@ static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *gri
     }
 }
 
-static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count, bool do_draw_cursor) {
+static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count,
+    bool do_draw_cursor, struct Selection *selection, bool do_draw_selection) {
+
+    struct Selection sorted_selection = selection_sorted(selection);
+
     for (size_t y = visible_scrollback_line_count; y < renderer->sprite_batch_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
             continue;
@@ -204,11 +242,17 @@ static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int
         for (size_t x = 0; x < grid->width; x++) {
             size_t i = x + grid_y * grid->width;
             char character = grid->data[x + grid_y * grid->width];
+
             struct Color background_color = color_from_hex(grid->background_colors[i]);
             struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
 
-            renderer_draw_tile(
-                character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
+            if (do_draw_selection && selection_contains_point(&sorted_selection, x, y)) {
+                struct Color old_background_color = background_color;
+                background_color = foreground_color;
+                foreground_color = old_background_color;
+            }
+
+            renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
 
         if (do_draw_cursor && grid->should_show_cursor && grid_y == grid->cursor_y) {
@@ -228,8 +272,9 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
     glBindTexture(GL_TEXTURE_2D, renderer->texture_atlas.id);
 
     int32_t visible_scrollback_line_count = renderer_get_visible_scrollback_line_count(renderer);
-    renderer_draw_scrollback(renderer, grid, visible_scrollback_line_count);
-    renderer_draw_grid(renderer, grid, visible_scrollback_line_count, window->is_focused);
+    renderer_draw_scrollback(renderer, grid, visible_scrollback_line_count, &window->selection, window->has_selection);
+    renderer_draw_grid(
+        renderer, grid, visible_scrollback_line_count, window->is_focused, &window->selection, window->has_selection);
 
     for (size_t y = 0; y < renderer->sprite_batch_count; y++) {
         struct SpriteBatch *sprite_batch = &renderer->sprite_batches[y];
@@ -239,7 +284,7 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
         sprite_batch_draw(sprite_batch);
     }
 
-	window_swap_buffers(window);
+    window_swap_buffers(window);
 }
 
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height) {
@@ -340,6 +385,6 @@ void renderer_destroy(struct Renderer *renderer) {
     free(renderer->sprite_batches);
     free(renderer->are_sprite_batches_dirty);
 
-	texture_destroy(&renderer->texture_atlas);
-	program_destroy(renderer->program);
+    texture_destroy(&renderer->texture_atlas);
+    program_destroy(renderer->program);
 }

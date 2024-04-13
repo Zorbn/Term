@@ -106,6 +106,36 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
     bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
     bool is_alt_pressed = mods & GLFW_MOD_ALT;
 
+    // TODO:
+    printf("has selection: %d\n", window->has_selection);
+    // TODO: Refactor out of this function.
+    if (is_ctrl_pressed && window->has_selection && input_is_button_pressed(&window->input, GLFW_KEY_C)) {
+        struct Selection sorted_selection = selection_sorted(&window->selection);
+
+        for (uint32_t y = sorted_selection.start_y; y <= sorted_selection.end_y; y++) {
+            uint32_t row_start_x = 0;
+
+            if (y == sorted_selection.start_y) {
+                row_start_x = sorted_selection.start_x;
+            }
+
+            uint32_t row_end_x = window->grid->width;
+
+            if (y == sorted_selection.end_y) {
+                row_end_x = sorted_selection.end_x;
+            }
+
+            for (uint32_t x = row_start_x; x <= row_end_x; x++) {
+                printf("%c", window->grid->data[y * window->grid->width + x]);
+            }
+
+            printf("\n");
+        }
+
+        window->has_selection = false;
+        return;
+    }
+
     if (needs_write) {
         if (is_key_cursor) {
             list_push_uint8_t(&window->typed_chars, '\x1b');
@@ -258,29 +288,59 @@ static void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
     input_update_button(&window->input, button, action);
 
-    if (grid_get_mouse_mode(window->grid) == GRID_MOUSE_MODE_NONE || button < 0 || button > 2) {
+    enum GridMouseMode mouse_mode = grid_get_mouse_mode(window->grid);
+
+    if (mouse_mode == GRID_MOUSE_MODE_NONE) {
+        if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
+            struct Selection old_selection = window->selection;
+
+            window->selection.start_x = window->mouse_tile_x - 1;
+            window->selection.start_y = window->mouse_tile_y - 1;
+
+            window->has_selection = false;
+
+            renderer_on_selection_changed(window->renderer, &old_selection, &window->selection);
+        }
+
         return;
     }
 
-    send_mouse_input(window, button, action, mods, false);
+    if (button >= 0 && button <= 2) {
+        send_mouse_input(window, button, action, mods, false);
+        return;
+    }
 }
 
 static void mouse_move_callback(GLFWwindow *glfw_window, double mouse_x, double mouse_y) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
 
-    uint32_t mouse_tile_x = mouse_x / (FONT_GLYPH_WIDTH * window->scale) + 1;
-    uint32_t mouse_tile_y = mouse_y / (FONT_GLYPH_HEIGHT * window->scale) + 1;
+    int32_t mouse_tile_x = mouse_x / (FONT_GLYPH_WIDTH * window->scale) + 1;
+    int32_t mouse_tile_y = mouse_y / (FONT_GLYPH_HEIGHT * window->scale) + 1;
 
-    if (mouse_tile_x == window->mouse_tile_x && mouse_tile_y == window->mouse_tile_y) {
-        return;
-    }
+    mouse_tile_x = int32_clamp(mouse_tile_x, 1, window->grid->width);
+    mouse_tile_y = int32_clamp(mouse_tile_y, 1, window->grid->height);
 
     window->mouse_tile_x = mouse_tile_x;
     window->mouse_tile_y = mouse_tile_y;
 
     enum GridMouseMode mouse_mode = grid_get_mouse_mode(window->grid);
 
-    if (mouse_mode == GRID_MOUSE_MODE_NONE || mouse_mode == GRID_MOUSE_MODE_BUTTON) {
+    if (mouse_mode == GRID_MOUSE_MODE_NONE) {
+        if (input_is_button_held(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
+            struct Selection old_selection = window->selection;
+
+            window->selection.end_x = window->mouse_tile_x - 1;
+            window->selection.end_y = window->mouse_tile_y - 1;
+
+            window->has_selection = true;
+
+            renderer_on_selection_changed(window->renderer, &old_selection, &window->selection);
+        }
+
+        return;
+    }
+
+    if (mouse_mode == GRID_MOUSE_MODE_BUTTON) {
         return;
     }
 
@@ -388,7 +448,8 @@ void window_show(struct Window *window) {
     window->is_visible = true;
 }
 
-void window_setup(struct Window *window, struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer) {
+void window_setup(
+    struct Window *window, struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer) {
     window->pseudo_console = pseudo_console;
     window->grid = grid;
     window->renderer = renderer;
@@ -411,7 +472,7 @@ void window_set_title(struct Window *window, char *title) {
 }
 
 void window_swap_buffers(struct Window *window) {
-	glfwSwapBuffers(window->glfw_window);
+    glfwSwapBuffers(window->glfw_window);
 }
 
 void window_destroy(struct Window *window) {
