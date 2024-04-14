@@ -17,11 +17,6 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-/*
- * Missing features:
- * Copy/paste,
- */
-
 int main(void) {
     struct Window window = window_create("Term", 640, 480);
 
@@ -85,28 +80,24 @@ int main(void) {
             break;
         }
 
-        if (renderer.needs_redraw) {
-            read_thread_data_lock(&read_thread_data);
+        read_thread_data_lock(&read_thread_data);
 
+        if (renderer.needs_redraw) {
             window_show(&window);
             renderer_draw(&renderer, &grid, window.height, &window);
 
             renderer.needs_redraw = false;
-
-            read_thread_data_unlock(&read_thread_data);
         }
 
         if (read_thread_data.title_buffer.is_dirty) {
-            read_thread_data_lock(&read_thread_data);
-
             window_set_title(&window, read_thread_data.title_buffer.data);
 
             read_thread_data.title_buffer.is_dirty = false;
-
-            read_thread_data_unlock(&read_thread_data);
         }
 
         window_update(&window);
+
+        read_thread_data_unlock(&read_thread_data);
 
         // Pause until we get an update from the pseudo console, the reader, or window input.
         HANDLE handles[2] = {pseudo_console.h_process, read_thread_data.event};

@@ -1,6 +1,5 @@
 #include "pseudo_console.h"
 
-#include <stdatomic.h>
 #include <assert.h>
 
 static HRESULT init_startup_information(HPCON hpc, STARTUPINFOEX *psi) {

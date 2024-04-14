@@ -30,7 +30,7 @@ struct Renderer {
     struct Selection selection;
     enum SelectionState selection_state;
 
-    _Atomic(bool) needs_redraw;
+    bool needs_redraw;
 };
 
 struct Renderer renderer_create(size_t width, size_t height);

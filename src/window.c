@@ -37,7 +37,6 @@ static void focused_callback(GLFWwindow *glfw_window, int32_t is_focused) {
 
 static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
     struct Window *window = glfwGetWindowUserPointer(glfw_window);
-    renderer_scroll_reset(window->renderer);
 
     input_update_button(&window->input, key, action);
 
@@ -109,29 +108,66 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
     // TODO: Refactor out of this function.
     if (is_ctrl_pressed && window->renderer->selection_state == SELECTION_STATE_FINISHED &&
         input_is_button_pressed(&window->input, GLFW_KEY_C)) {
+
+        list_reset_char(&window->copied_chars);
+
         struct Selection sorted_selection = selection_sorted(&window->renderer->selection);
 
-        for (uint32_t y = sorted_selection.start_y; y <= sorted_selection.end_y; y++) {
-            uint32_t row_start_x = 0;
+        for (int32_t y = sorted_selection.start_y; y <= sorted_selection.end_y; y++) {
+            int32_t row_start_x = 0;
 
             if (y == sorted_selection.start_y) {
                 row_start_x = sorted_selection.start_x;
             }
 
-            uint32_t row_end_x = window->grid->width;
+            int32_t row_end_x = window->grid->width;
 
             if (y == sorted_selection.end_y) {
                 row_end_x = sorted_selection.end_x;
             }
 
-            for (uint32_t x = row_start_x; x <= row_end_x; x++) {
-                printf("%c", window->grid->data[y * window->grid->width + x]);
+            for (int32_t x = row_start_x; x <= row_end_x; x++) {
+                char grid_char = ' ';
+
+                if (y < 0) {
+                    int32_t scrollback_y = window->grid->scrollback_lines.length + y;
+                    struct ScrollbackLine *scrollback_line = &window->grid->scrollback_lines.data[scrollback_y];
+
+                    if (x < scrollback_line->length) {
+                        grid_char = scrollback_line->data[x];
+                    }
+                } else {
+                    grid_char = window->grid->data[y * window->grid->width + x];
+                }
+
+                list_push_char(&window->copied_chars, grid_char);
             }
 
-            printf("\n");
+            if (y < sorted_selection.end_y) {
+                list_push_char(&window->copied_chars, '\n');
+            }
         }
 
         renderer_clear_selection(window->renderer);
+
+        HGLOBAL global_copied_chars = GlobalAlloc(GMEM_MOVEABLE, window->copied_chars.length + 1);
+
+        {
+            LPVOID copied_chars = GlobalLock(global_copied_chars);
+
+            memcpy(copied_chars, window->copied_chars.data, window->copied_chars.length);
+
+            char *last_char = global_copied_chars + window->copied_chars.length;
+            *last_char = '\0';
+
+            GlobalUnlock(copied_chars);
+        }
+
+        OpenClipboard(0);
+        EmptyClipboard();
+        SetClipboardData(CF_TEXT, global_copied_chars);
+        CloseClipboard();
+
         return;
     }
 
@@ -406,6 +442,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
         .glfw_window = glfw_window,
         .input = input_create(),
         .typed_chars = list_create_uint8_t(16),
+        .copied_chars = list_create_char(16),
         .width = width,
         .height = height,
         .scale = 1.0f,
@@ -447,6 +484,11 @@ void window_setup(struct Window *window, struct Grid *grid, struct Renderer *ren
 
 void window_update(struct Window *window) {
     input_update(&window->input);
+
+    if (window->typed_chars.length > 0) {
+        renderer_scroll_reset(window->renderer);
+    }
+
     list_reset_uint8_t(&window->typed_chars);
 }
 

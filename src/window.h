@@ -17,6 +17,7 @@ struct Grid;
 struct Renderer;
 
 LIST_DEFINE(uint8_t)
+LIST_DEFINE(char)
 
 struct Window {
     GLFWwindow *glfw_window;
@@ -34,6 +35,7 @@ struct Window {
     struct List_uint8_t typed_chars;
     uint32_t mouse_tile_x;
     uint32_t mouse_tile_y;
+    struct List_char copied_chars;
 
     struct Grid *grid;
     struct Renderer *renderer;

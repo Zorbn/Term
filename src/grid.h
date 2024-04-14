@@ -32,7 +32,7 @@
 
 struct TitleBuffer {
     char data[256];
-    _Atomic(bool) is_dirty;
+    bool is_dirty;
 };
 
 enum GridCursorStyle {
