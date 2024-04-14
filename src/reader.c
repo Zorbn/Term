@@ -11,16 +11,20 @@ static DWORD WINAPI read_thread_start(void *start_info) {
     struct TextBuffer *text_buffer = &data->text_buffer;
 
     while (true) {
-        if (!ReadFile(pseudo_console->output, text_buffer->data, TEXT_BUFFER_CAPACITY, &text_buffer->length, NULL)) {
+        if (!ReadFile(
+                pseudo_console->output,
+                text_buffer->data + text_buffer->kept_length,
+                TEXT_BUFFER_CAPACITY - text_buffer->kept_length,
+                &text_buffer->length,
+                NULL
+            )) {
             break;
         }
-
-        WaitForSingleObject(data->mutex, INFINITE);
 
         text_buffer->length += text_buffer->kept_length;
         text_buffer->kept_length = 0;
 
-        SetEvent(data->event);
+        read_thread_data_lock(data);
 
         for (size_t i = 0; i < text_buffer->length;) {
             // Skip multi-byte text. Replace it with a box character.
@@ -90,7 +94,8 @@ static DWORD WINAPI read_thread_start(void *start_info) {
             i++;
         }
 
-        ReleaseMutex(data->mutex);
+        SetEvent(data->event);
+        read_thread_data_unlock(data);
     }
 
     return 0;
