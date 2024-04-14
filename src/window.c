@@ -195,6 +195,8 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
                 list_push_uint8_t(&window->typed_chars, '2');
             } else if (is_ctrl_pressed) {
                 list_push_uint8_t(&window->typed_chars, '5');
+            } else if (is_alt_pressed) {
+                list_push_uint8_t(&window->typed_chars, '3');
             }
         }
 
