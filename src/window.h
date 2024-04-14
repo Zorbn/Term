@@ -35,17 +35,13 @@ struct Window {
     uint32_t mouse_tile_x;
     uint32_t mouse_tile_y;
 
-    struct Selection selection;
-    bool has_selection;
-
-    struct PseudoConsole *pseudo_console;
     struct Grid *grid;
     struct Renderer *renderer;
 };
 
 struct Window window_create(char *title, int32_t width, int32_t height);
 void window_show(struct Window *window);
-void window_setup(struct Window *window, struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer);
+void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer);
 void window_update(struct Window *window);
 void window_set_title(struct Window *window, char *title);
 void window_swap_buffers(struct Window *window);

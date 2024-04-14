@@ -106,11 +106,9 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
     bool is_ctrl_pressed = mods & GLFW_MOD_CONTROL;
     bool is_alt_pressed = mods & GLFW_MOD_ALT;
 
-    // TODO:
-    printf("has selection: %d\n", window->has_selection);
     // TODO: Refactor out of this function.
-    if (is_ctrl_pressed && window->has_selection && input_is_button_pressed(&window->input, GLFW_KEY_C)) {
-        struct Selection sorted_selection = selection_sorted(&window->selection);
+    if (is_ctrl_pressed && window->renderer->selection_state == SELECTION_STATE_FINISHED && input_is_button_pressed(&window->input, GLFW_KEY_C)) {
+        struct Selection sorted_selection = selection_sorted(&window->renderer->selection);
 
         for (uint32_t y = sorted_selection.start_y; y <= sorted_selection.end_y; y++) {
             uint32_t row_start_x = 0;
@@ -132,7 +130,7 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
             printf("\n");
         }
 
-        window->has_selection = false;
+        renderer_clear_selection(window->renderer);
         return;
     }
 
@@ -292,14 +290,7 @@ static void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32
 
     if (mouse_mode == GRID_MOUSE_MODE_NONE) {
         if (input_is_button_pressed(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
-            struct Selection old_selection = window->selection;
-
-            window->selection.start_x = window->mouse_tile_x - 1;
-            window->selection.start_y = window->mouse_tile_y - 1;
-
-            window->has_selection = false;
-
-            renderer_on_selection_changed(window->renderer, &old_selection, &window->selection);
+            renderer_set_selection_start(window->renderer, window->mouse_tile_x - 1, window->mouse_tile_y - 1);
         }
 
         return;
@@ -327,14 +318,7 @@ static void mouse_move_callback(GLFWwindow *glfw_window, double mouse_x, double 
 
     if (mouse_mode == GRID_MOUSE_MODE_NONE) {
         if (input_is_button_held(&window->input, GLFW_MOUSE_BUTTON_LEFT)) {
-            struct Selection old_selection = window->selection;
-
-            window->selection.end_x = window->mouse_tile_x - 1;
-            window->selection.end_y = window->mouse_tile_y - 1;
-
-            window->has_selection = true;
-
-            renderer_on_selection_changed(window->renderer, &old_selection, &window->selection);
+            renderer_set_selection_end(window->renderer, window->mouse_tile_x - 1, window->mouse_tile_y - 1);
         }
 
         return;
@@ -448,9 +432,7 @@ void window_show(struct Window *window) {
     window->is_visible = true;
 }
 
-void window_setup(
-    struct Window *window, struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer) {
-    window->pseudo_console = pseudo_console;
+void window_setup(struct Window *window, struct Grid *grid, struct Renderer *renderer) {
     window->grid = grid;
     window->renderer = renderer;
 

@@ -27,6 +27,9 @@ struct Renderer {
 
     int32_t scrollback_distance;
 
+    struct Selection selection;
+    enum SelectionState selection_state;
+
     _Atomic(bool) needs_redraw;
 };
 
@@ -34,8 +37,9 @@ struct Renderer renderer_create(size_t width, size_t height);
 void renderer_on_row_changed_callback(void *context, int32_t y);
 void renderer_on_row_changed(struct Renderer *renderer, int32_t y);
 void renderer_on_push_scrollback_line(void *context);
-void renderer_on_selection_changed(
-    struct Renderer *renderer, struct Selection *old_selection, struct Selection *new_selection);
+void renderer_clear_selection(struct Renderer *renderer);
+void renderer_set_selection_start(struct Renderer *renderer, uint32_t x, uint32_t y);
+void renderer_set_selection_end(struct Renderer *renderer, uint32_t x, uint32_t y);
 void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_y, struct Window *window);
 void renderer_resize_viewport(struct Renderer *renderer, int32_t width, int32_t height);
 void renderer_resize(struct Renderer *renderer, size_t width, size_t height, float scale);

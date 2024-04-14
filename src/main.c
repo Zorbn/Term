@@ -32,7 +32,7 @@ int main(void) {
     struct Renderer renderer = renderer_create(grid_width, grid_height);
     struct Grid grid = grid_create(grid_width, grid_height, &renderer, renderer_on_row_changed_callback);
 
-    window_setup(&window, &pseudo_console, &grid, &renderer);
+    window_setup(&window, &grid, &renderer);
 
     struct ReadThreadData read_thread_data = read_thread_data_create(&pseudo_console, &grid, &renderer);
     struct Reader reader = reader_create(&read_thread_data);

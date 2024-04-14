@@ -41,18 +41,51 @@ void renderer_on_row_changed(struct Renderer *renderer, int32_t y) {
     renderer->needs_redraw = true;
 }
 
-void renderer_on_selection_changed(
-    struct Renderer *renderer, struct Selection *old_selection, struct Selection *new_selection) {
-
+static void renderer_on_selection_changed(struct Renderer *renderer, struct Selection *old_selection) {
     struct Selection sorted_old_selection = selection_sorted(old_selection);
-    struct Selection sorted_new_selection = selection_sorted(new_selection);
+    struct Selection sorted_new_selection = selection_sorted(&renderer->selection);
 
     int32_t min_y = int32_min(sorted_old_selection.start_y, sorted_new_selection.start_y);
     int32_t max_y = int32_max(sorted_old_selection.end_y, sorted_new_selection.end_y);
 
     for (int32_t y = min_y; y <= max_y; y++) {
-        renderer_on_row_changed(renderer, y - renderer->scrollback_distance);
+        renderer_on_row_changed(renderer, y);
     }
+}
+
+static void renderer_on_scroll(struct Renderer *renderer) {
+    renderer_on_selection_changed(renderer, &renderer->selection);
+}
+
+void renderer_clear_selection(struct Renderer *renderer) {
+    renderer_on_selection_changed(renderer, &renderer->selection);
+    renderer->selection_state = SELECTION_STATE_NONE;
+}
+
+void renderer_set_selection_start(struct Renderer *renderer, uint32_t x, uint32_t y) {
+    struct Selection old_selection = renderer->selection;
+
+    renderer->selection.start_x = x;
+    renderer->selection.start_y = y - renderer->scrollback_distance;
+
+    renderer->selection_state = SELECTION_STATE_STARTED;
+
+    renderer_on_selection_changed(renderer, &old_selection);
+}
+
+void renderer_set_selection_end(struct Renderer *renderer, uint32_t x, uint32_t y) {
+    if (renderer->selection_state == SELECTION_STATE_NONE) {
+        return;
+    }
+
+    struct Selection old_selection = renderer->selection;
+
+    renderer->selection.end_x = x;
+    renderer->selection.end_y = y - renderer->scrollback_distance;
+
+    renderer->selection_state = SELECTION_STATE_FINISHED;
+
+    renderer_on_selection_changed(renderer, &old_selection);
 }
 
 static int32_t renderer_get_visible_scrollback_line_count(struct Renderer *renderer) {
@@ -175,10 +208,22 @@ static void renderer_draw_cursor(
     }
 }
 
-static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *grid,
-    int32_t visible_scrollback_line_count, struct Selection *selection, bool do_draw_selection) {
+static void renderer_apply_selection_colors(struct Renderer *renderer, struct Selection *sorted_selection, int32_t x,
+    int32_t y, struct Color *foreground_color, struct Color *background_color) {
 
-    struct Selection sorted_selection = selection_sorted(selection);
+    if (renderer->selection_state != SELECTION_STATE_FINISHED || !selection_contains_point(sorted_selection, x, y)) {
+        return;
+    }
+
+    struct Color old_background_color = *background_color;
+    *background_color = *foreground_color;
+    *foreground_color = old_background_color;
+}
+
+static void renderer_draw_scrollback(
+    struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+
+    struct Selection sorted_selection = selection_sorted(&renderer->selection);
 
     for (size_t y = 0; y < visible_scrollback_line_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
@@ -210,12 +255,7 @@ static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *gri
             struct Color background_color = color_from_hex(background_hex_color);
             struct Color foreground_color = color_from_hex(foreground_hex_color);
 
-            if (do_draw_selection && selection_contains_point(&sorted_selection, x, y)) {
-                struct Color old_background_color = background_color;
-                background_color = foreground_color;
-                foreground_color = old_background_color;
-            }
-
+            renderer_apply_selection_colors(renderer, &sorted_selection, x, - renderer->scrollback_distance + y, &foreground_color, &background_color);
             renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
 
@@ -223,10 +263,10 @@ static void renderer_draw_scrollback(struct Renderer *renderer, struct Grid *gri
     }
 }
 
-static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count,
-    bool do_draw_cursor, struct Selection *selection, bool do_draw_selection) {
+static void renderer_draw_grid(
+    struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count, bool do_draw_cursor) {
 
-    struct Selection sorted_selection = selection_sorted(selection);
+    struct Selection sorted_selection = selection_sorted(&renderer->selection);
 
     for (size_t y = visible_scrollback_line_count; y < renderer->sprite_batch_count; y++) {
         if (!renderer->are_sprite_batches_dirty[y]) {
@@ -246,12 +286,7 @@ static void renderer_draw_grid(struct Renderer *renderer, struct Grid *grid, int
             struct Color background_color = color_from_hex(grid->background_colors[i]);
             struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
 
-            if (do_draw_selection && selection_contains_point(&sorted_selection, x, y)) {
-                struct Color old_background_color = background_color;
-                background_color = foreground_color;
-                foreground_color = old_background_color;
-            }
-
+            renderer_apply_selection_colors(renderer, &sorted_selection, x, grid_y, &foreground_color, &background_color);
             renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
 
@@ -272,9 +307,9 @@ void renderer_draw(struct Renderer *renderer, struct Grid *grid, int32_t origin_
     glBindTexture(GL_TEXTURE_2D, renderer->texture_atlas.id);
 
     int32_t visible_scrollback_line_count = renderer_get_visible_scrollback_line_count(renderer);
-    renderer_draw_scrollback(renderer, grid, visible_scrollback_line_count, &window->selection, window->has_selection);
-    renderer_draw_grid(
-        renderer, grid, visible_scrollback_line_count, window->is_focused, &window->selection, window->has_selection);
+
+    renderer_draw_scrollback(renderer, grid, visible_scrollback_line_count);
+    renderer_draw_grid(renderer, grid, visible_scrollback_line_count, window->is_focused);
 
     for (size_t y = 0; y < renderer->sprite_batch_count; y++) {
         struct SpriteBatch *sprite_batch = &renderer->sprite_batches[y];
@@ -329,11 +364,15 @@ void renderer_scroll_reset(struct Renderer *renderer) {
         return;
     }
 
+    renderer_on_scroll(renderer);
+
     renderer->scrollback_distance = 0;
     renderer_mark_all_sprite_batches_dirty(renderer);
 }
 
 void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid) {
+    renderer_on_scroll(renderer);
+
     if (!is_scrolling_with_grid) {
         renderer->scrollback_distance -= 1;
         if (renderer->scrollback_distance < 0) {
@@ -357,6 +396,8 @@ void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid
 }
 
 void renderer_scroll_up(struct Renderer *renderer, struct Grid *grid) {
+    renderer_on_scroll(renderer);
+
     renderer->scrollback_distance += 1;
     if (renderer->scrollback_distance > grid->scrollback_lines.length) {
         renderer->scrollback_distance = grid->scrollback_lines.length;
