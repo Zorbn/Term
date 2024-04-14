@@ -35,26 +35,6 @@ static void focused_callback(GLFWwindow *glfw_window, int32_t is_focused) {
     renderer_on_row_changed(window->renderer, window->grid->cursor_y);
 }
 
-static void window_copy_chars_to_clipboard(struct Window *window, char *data, size_t length) {
-    HGLOBAL global_copied_chars = GlobalAlloc(GMEM_MOVEABLE, length + 1);
-
-    {
-        LPVOID copied_chars = GlobalLock(global_copied_chars);
-
-        memcpy(copied_chars, data, length);
-
-        char *last_char = global_copied_chars + length;
-        *last_char = '\0';
-
-        GlobalUnlock(copied_chars);
-    }
-
-    OpenClipboard(0);
-    EmptyClipboard();
-    SetClipboardData(CF_TEXT, global_copied_chars);
-    CloseClipboard();
-}
-
 static void window_copy_selection(struct Window *window) {
     list_reset_char(&window->copied_chars);
 
@@ -67,7 +47,7 @@ static void window_copy_selection(struct Window *window) {
             row_start_x = sorted_selection.start_x;
         }
 
-        int32_t row_end_x = window->grid->width;
+        int32_t row_end_x = window->grid->width - 1;
 
         if (y == sorted_selection.end_y) {
             row_end_x = sorted_selection.end_x;
@@ -97,7 +77,8 @@ static void window_copy_selection(struct Window *window) {
 
     renderer_clear_selection(window->renderer);
 
-    window_copy_chars_to_clipboard(window, window->copied_chars.data, window->copied_chars.length);
+    list_push_char(&window->copied_chars, '\0');
+    glfwSetClipboardString(window->glfw_window, window->copied_chars.data);
 }
 
 static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
