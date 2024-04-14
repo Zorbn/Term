@@ -273,52 +273,6 @@ void grid_swap_current_colors(struct Grid *grid) {
     grid->current_foreground_color = old_background_color;
 }
 
-uint32_t grid_color_to_bright(uint32_t color) {
-    switch (color) {
-        case GRID_COLOR_BLACK:
-            return GRID_COLOR_BRIGHT_BLACK;
-        case GRID_COLOR_RED:
-            return GRID_COLOR_BRIGHT_RED;
-        case GRID_COLOR_GREEN:
-            return GRID_COLOR_BRIGHT_GREEN;
-        case GRID_COLOR_YELLOW:
-            return GRID_COLOR_BRIGHT_YELLOW;
-        case GRID_COLOR_BLUE:
-            return GRID_COLOR_BRIGHT_BLUE;
-        case GRID_COLOR_MAGENTA:
-            return GRID_COLOR_BRIGHT_MAGENTA;
-        case GRID_COLOR_CYAN:
-            return GRID_COLOR_BRIGHT_CYAN;
-        case GRID_COLOR_WHITE:
-            return GRID_COLOR_BRIGHT_WHITE;
-    }
-
-    return color;
-}
-
-uint32_t grid_color_to_non_bright(uint32_t color) {
-    switch (color) {
-        case GRID_COLOR_BRIGHT_BLACK:
-            return GRID_COLOR_BLACK;
-        case GRID_COLOR_BRIGHT_RED:
-            return GRID_COLOR_RED;
-        case GRID_COLOR_BRIGHT_GREEN:
-            return GRID_COLOR_GREEN;
-        case GRID_COLOR_BRIGHT_YELLOW:
-            return GRID_COLOR_YELLOW;
-        case GRID_COLOR_BRIGHT_BLUE:
-            return GRID_COLOR_BLUE;
-        case GRID_COLOR_BRIGHT_MAGENTA:
-            return GRID_COLOR_MAGENTA;
-        case GRID_COLOR_BRIGHT_CYAN:
-            return GRID_COLOR_CYAN;
-        case GRID_COLOR_BRIGHT_WHITE:
-            return GRID_COLOR_WHITE;
-    }
-
-    return color;
-}
-
 void grid_reset_formatting(struct Grid *grid) {
     grid->are_colors_swapped = false;
     grid->current_background_color = GRID_COLOR_BACKGROUND_DEFAULT;
@@ -486,19 +440,11 @@ static bool grid_parse_text_formatting(
                     grid_reset_formatting(grid);
                     break;
                 }
-                case 1: {
-                    *foreground_color = grid_color_to_bright(*foreground_color);
-                    break;
-                }
                 case 7: {
                     if (!grid->are_colors_swapped) {
                         grid_swap_current_colors(grid);
                         grid->are_colors_swapped = true;
                     }
-                    break;
-                }
-                case 22: {
-                    *foreground_color = grid_color_to_non_bright(*foreground_color);
                     break;
                 }
                 case 27: {

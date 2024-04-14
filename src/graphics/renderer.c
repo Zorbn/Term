@@ -334,7 +334,7 @@ static void renderer_draw_grid(
 
         for (size_t x = 0; x < grid->width; x++) {
             size_t i = x + grid_y * grid->width;
-            char character = grid->data[x + grid_y * grid->width];
+            char character = grid->data[i];
 
             struct Color background_color = color_from_hex(grid->background_colors[i]);
             struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
