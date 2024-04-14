@@ -22,7 +22,14 @@ static HRESULT init_startup_information(HPCON hpc, STARTUPINFOEX *psi) {
     }
 
     if (!UpdateProcThreadAttribute(
-            si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, hpc, sizeof(hpc), NULL, NULL)) {
+            si.lpAttributeList,
+            0,
+            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+            hpc,
+            sizeof(hpc),
+            NULL,
+            NULL
+        )) {
         HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
         return HRESULT_FROM_WIN32(GetLastError());
     }
@@ -95,8 +102,18 @@ struct PseudoConsole pseudo_console_create(COORD size) {
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
 
-    if (!CreateProcessW(NULL, command, NULL, NULL, FALSE, EXTENDED_STARTUPINFO_PRESENT, NULL, NULL,
-            (LPSTARTUPINFOW)(&si_ex.StartupInfo), &pi)) {
+    if (!CreateProcessW(
+            NULL,
+            command,
+            NULL,
+            NULL,
+            FALSE,
+            EXTENDED_STARTUPINFO_PRESENT,
+            NULL,
+            NULL,
+            (LPSTARTUPINFOW)(&si_ex.StartupInfo),
+            &pi
+        )) {
         HeapFree(GetProcessHeap(), 0, command);
         return (struct PseudoConsole){
             HRESULT_FROM_WIN32(GetLastError()),

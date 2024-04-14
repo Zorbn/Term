@@ -107,7 +107,8 @@ static void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode,
     bool is_alt_pressed = mods & GLFW_MOD_ALT;
 
     // TODO: Refactor out of this function.
-    if (is_ctrl_pressed && window->renderer->selection_state == SELECTION_STATE_FINISHED && input_is_button_pressed(&window->input, GLFW_KEY_C)) {
+    if (is_ctrl_pressed && window->renderer->selection_state == SELECTION_STATE_FINISHED &&
+        input_is_button_pressed(&window->input, GLFW_KEY_C)) {
         struct Selection sorted_selection = selection_sorted(&window->renderer->selection);
 
         for (uint32_t y = sorted_selection.start_y; y <= sorted_selection.end_y; y++) {

@@ -1,8 +1,11 @@
 BasedOnStyle: Microsoft
-AlignAfterOpenBracket: DontAlign
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
 AccessModifierOffset: 0
 IndentCaseLabels: true
 BreakBeforeBraces: Attach
 DerivePointerAlignment: false
 PointerAlignment: Right
 SortIncludes: false
+AllowAllArgumentsOnNextLine: false

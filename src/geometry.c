@@ -1,7 +1,6 @@
 #include "geometry.h"
 
-struct Matrix4 matrix4_orthographic(float left, float right, float bottom, float top, float near_z, float far_z)
-{
+struct Matrix4 matrix4_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
     float inverse_width = 1.0f / (right - left);
     float inverse_height = 1.0f / (top - bottom);
     float inverse_z = -1.0f / (far_z - near_z);

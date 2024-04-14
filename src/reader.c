@@ -96,7 +96,9 @@ static DWORD WINAPI read_thread_start(void *start_info) {
     return 0;
 }
 
-struct ReadThreadData read_thread_data_create(struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer) {
+struct ReadThreadData read_thread_data_create(
+    struct PseudoConsole *pseudo_console, struct Grid *grid, struct Renderer *renderer
+) {
     struct ReadThreadData read_thread_data = (struct ReadThreadData){
         .pseudo_console = pseudo_console,
         .grid = grid,

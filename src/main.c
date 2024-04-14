@@ -113,9 +113,7 @@ int main(void) {
         MsgWaitForMultipleObjects(2, handles, false, INFINITE, QS_ALLINPUT);
 
         read_thread_data_lock(&read_thread_data);
-        {
-            glfwPollEvents();
-        }
+        glfwPollEvents();
         read_thread_data_unlock(&read_thread_data);
     }
 

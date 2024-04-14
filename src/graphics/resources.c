@@ -53,7 +53,7 @@ uint32_t program_create(char *vertex_path, char *fragment_path) {
 }
 
 void program_destroy(uint32_t program) {
-	glDeleteProgram(program);
+    glDeleteProgram(program);
 }
 
 struct Texture texture_create(char *file_path) {

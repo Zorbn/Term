@@ -78,9 +78,13 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
         }
     }
 
-    mesh_update(&sprite_batch->mesh, sprite_batch->vertices.data,
-        sprite_batch->vertices.length / vertex_component_count, sprite_batch->indices.data,
-        sprite_batch->indices.length);
+    mesh_update(
+        &sprite_batch->mesh,
+        sprite_batch->vertices.data,
+        sprite_batch->vertices.length / vertex_component_count,
+        sprite_batch->indices.data,
+        sprite_batch->indices.length
+    );
 }
 
 void sprite_batch_draw(struct SpriteBatch *sprite_batch) {

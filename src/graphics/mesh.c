@@ -41,7 +41,9 @@ struct Mesh mesh_create(uint32_t max_vertex_count, uint32_t max_index_count) {
     };
 }
 
-void mesh_update(struct Mesh *mesh, const float *vertices, uint32_t vertex_count, const uint32_t *indices, uint32_t index_count) {
+void mesh_update(
+    struct Mesh *mesh, const float *vertices, uint32_t vertex_count, const uint32_t *indices, uint32_t index_count
+) {
     assert(vertex_count <= mesh->max_vertex_count);
     assert(index_count <= mesh->max_index_count);
 

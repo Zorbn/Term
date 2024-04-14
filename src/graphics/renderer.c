@@ -97,93 +97,138 @@ static int32_t renderer_get_visible_scrollback_line_count(struct Renderer *rende
     return visible_scrollback_line_count;
 }
 
-static void renderer_draw_character(char character, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z,
-    float scale, float r, float g, float b) {
+static void renderer_draw_character(
+    char character,
+    struct SpriteBatch *sprite_batch,
+    int32_t x,
+    int32_t y,
+    int32_t z,
+    float scale,
+    float r,
+    float g,
+    float b
+) {
 
     if (character == ' ') {
         return;
     }
 
-    sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * FONT_GLYPH_WIDTH * scale,
-                                       .z = z * scale,
-                                       .width = FONT_GLYPH_WIDTH * scale,
-                                       .height = FONT_GLYPH_HEIGHT * scale,
+    sprite_batch_add(
+        sprite_batch,
+        (struct Sprite){
+            .x = x * FONT_GLYPH_WIDTH * scale,
+            .z = z * scale,
+            .width = FONT_GLYPH_WIDTH * scale,
+            .height = FONT_GLYPH_HEIGHT * scale,
 
-                                       .texture_x = 8 * (character - 32),
-                                       .texture_width = FONT_GLYPH_WIDTH,
-                                       .texture_height = FONT_GLYPH_HEIGHT,
+            .texture_x = 8 * (character - 32),
+            .texture_width = FONT_GLYPH_WIDTH,
+            .texture_height = FONT_GLYPH_HEIGHT,
 
-                                       .r = r,
-                                       .g = g,
-                                       .b = b,
-                                   });
+            .r = r,
+            .g = g,
+            .b = b,
+        }
+    );
 }
 
 static void renderer_draw_box(
-    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
-    sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * FONT_GLYPH_WIDTH * scale,
-                                       .z = z * scale,
-                                       .width = FONT_GLYPH_WIDTH * scale,
-                                       .height = FONT_GLYPH_HEIGHT * scale,
+    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
+) {
 
-                                       .texture_x = 0,
-                                       .texture_width = FONT_GLYPH_WIDTH,
-                                       .texture_height = FONT_GLYPH_HEIGHT,
+    sprite_batch_add(
+        sprite_batch,
+        (struct Sprite){
+            .x = x * FONT_GLYPH_WIDTH * scale,
+            .z = z * scale,
+            .width = FONT_GLYPH_WIDTH * scale,
+            .height = FONT_GLYPH_HEIGHT * scale,
 
-                                       .r = r,
-                                       .g = g,
-                                       .b = b,
-                                   });
+            .texture_x = 0,
+            .texture_width = FONT_GLYPH_WIDTH,
+            .texture_height = FONT_GLYPH_HEIGHT,
+
+            .r = r,
+            .g = g,
+            .b = b,
+        }
+    );
 }
 
 static void renderer_draw_bar(
-    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
-    sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * FONT_GLYPH_WIDTH * scale,
-                                       .z = z * scale,
-                                       .width = FONT_LINE_WIDTH * scale,
-                                       .height = FONT_GLYPH_HEIGHT * scale,
+    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
+) {
 
-                                       .texture_x = 0,
-                                       .texture_width = FONT_GLYPH_WIDTH,
-                                       .texture_height = FONT_GLYPH_HEIGHT,
+    sprite_batch_add(
+        sprite_batch,
+        (struct Sprite){
+            .x = x * FONT_GLYPH_WIDTH * scale,
+            .z = z * scale,
+            .width = FONT_LINE_WIDTH * scale,
+            .height = FONT_GLYPH_HEIGHT * scale,
 
-                                       .r = r,
-                                       .g = g,
-                                       .b = b,
-                                   });
+            .texture_x = 0,
+            .texture_width = FONT_GLYPH_WIDTH,
+            .texture_height = FONT_GLYPH_HEIGHT,
+
+            .r = r,
+            .g = g,
+            .b = b,
+        }
+    );
 }
 
 static void renderer_draw_underline(
-    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b) {
-    sprite_batch_add(sprite_batch, (struct Sprite){
-                                       .x = x * FONT_GLYPH_WIDTH * scale,
-                                       .z = z * (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
-                                       .width = FONT_GLYPH_WIDTH * scale,
-                                       .height = FONT_LINE_WIDTH * scale,
+    struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
+) {
 
-                                       .texture_x = 0,
-                                       .texture_width = FONT_GLYPH_WIDTH,
-                                       .texture_height = FONT_GLYPH_HEIGHT,
+    sprite_batch_add(
+        sprite_batch,
+        (struct Sprite){
+            .x = x * FONT_GLYPH_WIDTH * scale,
+            .z = z * (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
+            .width = FONT_GLYPH_WIDTH * scale,
+            .height = FONT_LINE_WIDTH * scale,
 
-                                       .r = r,
-                                       .g = g,
-                                       .b = b,
-                                   });
+            .texture_x = 0,
+            .texture_width = FONT_GLYPH_WIDTH,
+            .texture_height = FONT_GLYPH_HEIGHT,
+
+            .r = r,
+            .g = g,
+            .b = b,
+        }
+    );
 }
 
-static void renderer_draw_tile(char character, struct Color foreground_color, struct Color background_color,
-    struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
+static void renderer_draw_tile(
+    char character,
+    struct Color foreground_color,
+    struct Color background_color,
+    struct SpriteBatch *sprite_batch,
+    int32_t x,
+    int32_t y,
+    int32_t z,
+    float scale
+) {
 
     renderer_draw_box(sprite_batch, x, z, scale, background_color.r, background_color.g, background_color.b);
     renderer_draw_character(
-        character, sprite_batch, x, y, z + 1, scale, foreground_color.r, foreground_color.g, foreground_color.b);
+        character,
+        sprite_batch,
+        x,
+        y,
+        z + 1,
+        scale,
+        foreground_color.r,
+        foreground_color.g,
+        foreground_color.b
+    );
 }
 
 static void renderer_draw_cursor(
-    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale) {
+    struct Grid *grid, struct SpriteBatch *sprite_batch, int32_t x, int32_t y, int32_t z, float scale
+) {
 
     if (x >= grid->width) {
         x = grid->width - 1;
@@ -208,8 +253,14 @@ static void renderer_draw_cursor(
     }
 }
 
-static void renderer_apply_selection_colors(struct Renderer *renderer, struct Selection *sorted_selection, int32_t x,
-    int32_t y, struct Color *foreground_color, struct Color *background_color) {
+static void renderer_apply_selection_colors(
+    struct Renderer *renderer,
+    struct Selection *sorted_selection,
+    int32_t x,
+    int32_t y,
+    struct Color *foreground_color,
+    struct Color *background_color
+) {
 
     if (renderer->selection_state != SELECTION_STATE_FINISHED || !selection_contains_point(sorted_selection, x, y)) {
         return;
@@ -221,7 +272,8 @@ static void renderer_apply_selection_colors(struct Renderer *renderer, struct Se
 }
 
 static void renderer_draw_scrollback(
-    struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count) {
+    struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count
+) {
 
     struct Selection sorted_selection = selection_sorted(&renderer->selection);
 
@@ -255,7 +307,14 @@ static void renderer_draw_scrollback(
             struct Color background_color = color_from_hex(background_hex_color);
             struct Color foreground_color = color_from_hex(foreground_hex_color);
 
-            renderer_apply_selection_colors(renderer, &sorted_selection, x, - renderer->scrollback_distance + y, &foreground_color, &background_color);
+            renderer_apply_selection_colors(
+                renderer,
+                &sorted_selection,
+                x,
+                -renderer->scrollback_distance + y,
+                &foreground_color,
+                &background_color
+            );
             renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
 
@@ -264,7 +323,8 @@ static void renderer_draw_scrollback(
 }
 
 static void renderer_draw_grid(
-    struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count, bool do_draw_cursor) {
+    struct Renderer *renderer, struct Grid *grid, int32_t visible_scrollback_line_count, bool do_draw_cursor
+) {
 
     struct Selection sorted_selection = selection_sorted(&renderer->selection);
 
@@ -286,7 +346,14 @@ static void renderer_draw_grid(
             struct Color background_color = color_from_hex(grid->background_colors[i]);
             struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);
 
-            renderer_apply_selection_colors(renderer, &sorted_selection, x, grid_y, &foreground_color, &background_color);
+            renderer_apply_selection_colors(
+                renderer,
+                &sorted_selection,
+                x,
+                grid_y,
+                &foreground_color,
+                &background_color
+            );
             renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
         }
 
@@ -383,12 +450,18 @@ void renderer_scroll_down(struct Renderer *renderer, bool is_scrolling_with_grid
 
     // Rotate the sprite batchs to allow scrolling without updating every batch.
     struct SpriteBatch first_sprite_batch = renderer->sprite_batches[0];
-    memmove(&renderer->sprite_batches[0], &renderer->sprite_batches[1],
-        (renderer->sprite_batch_count - 1) * sizeof(struct SpriteBatch));
+    memmove(
+        &renderer->sprite_batches[0],
+        &renderer->sprite_batches[1],
+        (renderer->sprite_batch_count - 1) * sizeof(struct SpriteBatch)
+    );
     renderer->sprite_batches[renderer->sprite_batch_count - 1] = first_sprite_batch;
 
-    memmove(renderer->are_sprite_batches_dirty, renderer->are_sprite_batches_dirty + 1,
-        (renderer->sprite_batch_count - 1) * sizeof(bool));
+    memmove(
+        renderer->are_sprite_batches_dirty,
+        renderer->are_sprite_batches_dirty + 1,
+        (renderer->sprite_batch_count - 1) * sizeof(bool)
+    );
     // Now the bottom sprite batch is the only one with newly outdated content.
     renderer->are_sprite_batches_dirty[renderer->sprite_batch_count - 1] = true;
 
@@ -406,12 +479,18 @@ void renderer_scroll_up(struct Renderer *renderer, struct Grid *grid) {
 
     // Rotate the sprite batchs to allow scrolling without updating every batch.
     struct SpriteBatch last_sprite_batch = renderer->sprite_batches[renderer->sprite_batch_count - 1];
-    memmove(&renderer->sprite_batches[1], &renderer->sprite_batches[0],
-        (renderer->sprite_batch_count - 1) * sizeof(struct SpriteBatch));
+    memmove(
+        &renderer->sprite_batches[1],
+        &renderer->sprite_batches[0],
+        (renderer->sprite_batch_count - 1) * sizeof(struct SpriteBatch)
+    );
     renderer->sprite_batches[0] = last_sprite_batch;
 
-    memmove(renderer->are_sprite_batches_dirty + 1, renderer->are_sprite_batches_dirty,
-        (renderer->sprite_batch_count - 1) * sizeof(bool));
+    memmove(
+        renderer->are_sprite_batches_dirty + 1,
+        renderer->are_sprite_batches_dirty,
+        (renderer->sprite_batch_count - 1) * sizeof(bool)
+    );
     // Now the top sprite batch is the only one with newly outdated content.
     renderer->are_sprite_batches_dirty[0] = true;
 
