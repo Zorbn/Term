@@ -101,14 +101,12 @@ static void renderer_draw_character(
     char character,
     struct SpriteBatch *sprite_batch,
     int32_t x,
-    int32_t y,
     int32_t z,
     float scale,
     float r,
     float g,
     float b
 ) {
-
     if (character == ' ') {
         return;
     }
@@ -121,7 +119,7 @@ static void renderer_draw_character(
             .width = FONT_GLYPH_WIDTH * scale,
             .height = FONT_GLYPH_HEIGHT * scale,
 
-            .texture_x = 8 * (character - 32),
+            .texture_x = (FONT_GLYPH_WIDTH + FONT_GLYPH_PADDING) * (character - 32),
             .texture_width = FONT_GLYPH_WIDTH,
             .texture_height = FONT_GLYPH_HEIGHT,
 
@@ -135,7 +133,6 @@ static void renderer_draw_character(
 static void renderer_draw_box(
     struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
 ) {
-
     sprite_batch_add(
         sprite_batch,
         (struct Sprite){
@@ -158,7 +155,6 @@ static void renderer_draw_box(
 static void renderer_draw_bar(
     struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
 ) {
-
     sprite_batch_add(
         sprite_batch,
         (struct Sprite){
@@ -168,7 +164,7 @@ static void renderer_draw_bar(
             .height = FONT_GLYPH_HEIGHT * scale,
 
             .texture_x = 0,
-            .texture_width = FONT_GLYPH_WIDTH,
+            .texture_width = FONT_LINE_WIDTH,
             .texture_height = FONT_GLYPH_HEIGHT,
 
             .r = r,
@@ -181,18 +177,17 @@ static void renderer_draw_bar(
 static void renderer_draw_underline(
     struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
 ) {
-
     sprite_batch_add(
         sprite_batch,
         (struct Sprite){
             .x = x * FONT_GLYPH_WIDTH * scale,
-            .z = z * (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
+            .z = (z + FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
             .width = FONT_GLYPH_WIDTH * scale,
             .height = FONT_LINE_WIDTH * scale,
 
             .texture_x = 0,
             .texture_width = FONT_GLYPH_WIDTH,
-            .texture_height = FONT_GLYPH_HEIGHT,
+            .texture_height = FONT_LINE_WIDTH,
 
             .r = r,
             .g = g,
@@ -207,7 +202,6 @@ static void renderer_draw_tile(
     struct Color background_color,
     struct SpriteBatch *sprite_batch,
     int32_t x,
-    int32_t y,
     int32_t z,
     float scale
 ) {
@@ -217,7 +211,6 @@ static void renderer_draw_tile(
         character,
         sprite_batch,
         x,
-        y,
         z + 1,
         scale,
         foreground_color.r,
@@ -239,7 +232,7 @@ static void renderer_draw_cursor(
             renderer_draw_box(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
 
             char character = grid->data[x + y * grid->width];
-            renderer_draw_character(character, sprite_batch, x, y, z + 1, scale, 0.0f, 0.0f, 0.0f);
+            renderer_draw_character(character, sprite_batch, x, z + 1, scale, 0.0f, 0.0f, 0.0f);
             break;
         }
         case GRID_CURSOR_STYLE_UNDERLINE: {
@@ -315,7 +308,7 @@ static void renderer_draw_scrollback(
                 &foreground_color,
                 &background_color
             );
-            renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
+            renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, 0, renderer->scale);
         }
 
         sprite_batch_end(sprite_batch, renderer->texture_atlas.width, renderer->texture_atlas.height);
@@ -354,7 +347,7 @@ static void renderer_draw_grid(
                 &foreground_color,
                 &background_color
             );
-            renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, y, 0, renderer->scale);
+            renderer_draw_tile(character, foreground_color, background_color, sprite_batch, x, 0, renderer->scale);
         }
 
         if (do_draw_cursor && grid->should_show_cursor && grid_y == grid->cursor_y) {
