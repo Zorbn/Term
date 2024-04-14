@@ -493,6 +493,7 @@ void window_update(struct Window *window) {
 
     if (window->typed_chars.length > 0) {
         renderer_scroll_reset(window->renderer);
+        renderer_clear_selection(window->renderer);
     }
 
     list_reset_uint8_t(&window->typed_chars);
