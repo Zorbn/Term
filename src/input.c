@@ -63,4 +63,5 @@ bool input_is_button_released(struct Input *input, int32_t button) {
 void input_destroy(struct Input *input) {
     list_destroy_int32_t(&input->held_buttons);
     list_destroy_int32_t(&input->pressed_buttons);
+    list_destroy_int32_t(&input->released_buttons);
 }

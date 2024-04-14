@@ -512,6 +512,7 @@ void window_swap_buffers(struct Window *window) {
 void window_destroy(struct Window *window) {
     input_destroy(&window->input);
     list_destroy_uint8_t(&window->typed_chars);
+    list_destroy_char(&window->copied_chars);
 
     glfwTerminate();
 }
