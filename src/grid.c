@@ -39,7 +39,7 @@ struct Grid grid_create(
 
     size_t size = width * height;
     struct Grid grid = (struct Grid){
-        .data = malloc(size * sizeof(char)),
+        .data = malloc(size * sizeof(uint32_t)),
         .width = width,
         .height = height,
         .size = size,
@@ -70,9 +70,7 @@ size_t grid_get_occupied_line_length(struct Grid *grid, size_t y) {
     for (int32_t x = grid->width - 1; x >= 0; x--) {
         int32_t i = x + y * grid->width;
 
-        if (grid->data[i] != ' ' || grid->foreground_colors[i] != GRID_COLOR_FOREGROUND_DEFAULT ||
-            grid->background_colors[i] != GRID_COLOR_BACKGROUND_DEFAULT) {
-
+        if (grid->data[i] != ' ' || grid->background_colors[i] != GRID_COLOR_BACKGROUND_DEFAULT) {
             line_length = x + 1;
             break;
         }
@@ -101,9 +99,9 @@ void grid_push_partial_line_to_scrollback(struct Grid *grid, size_t y, size_t le
 
     size_t start_offset = y * grid->width;
 
-    scrollback_line.data = malloc(length * sizeof(char));
+    scrollback_line.data = malloc(length * sizeof(uint32_t));
     assert(scrollback_line.data);
-    memcpy(scrollback_line.data, grid->data + start_offset, length * sizeof(char));
+    memcpy(scrollback_line.data, grid->data + start_offset, length * sizeof(uint32_t));
 
     scrollback_line.background_colors = malloc(length * sizeof(uint32_t));
     assert(scrollback_line.background_colors);
@@ -160,8 +158,8 @@ void grid_resize(struct Grid *grid, size_t width, size_t height) {
     size_t old_height = grid->height;
     grid->height = height;
 
-    char *old_data = grid->data;
-    grid->data = malloc(grid->size * sizeof(char));
+    uint32_t *old_data = grid->data;
+    grid->data = malloc(grid->size * sizeof(uint32_t));
     assert(grid->data);
 
     uint32_t *old_background_colors = grid->background_colors;
@@ -198,7 +196,7 @@ void grid_resize(struct Grid *grid, size_t width, size_t height) {
     free(old_foreground_colors);
 }
 
-void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character) {
+void grid_set_char(struct Grid *grid, int32_t x, int32_t y, uint32_t character) {
     if (x < 0 || y < 0 || x >= grid->width || y >= grid->height) {
         return;
     }
@@ -218,7 +216,7 @@ void grid_scroll_down(struct Grid *grid) {
 
     // Shift all rows after the first up by one (overwriting the first row).
     size_t preserved_tile_count = grid->size - grid->width;
-    memmove(grid->data, grid->data + grid->width, preserved_tile_count * sizeof(char));
+    memmove(grid->data, grid->data + grid->width, preserved_tile_count * sizeof(uint32_t));
     memmove(grid->background_colors, grid->background_colors + grid->width, preserved_tile_count * sizeof(uint32_t));
     memmove(grid->foreground_colors, grid->foreground_colors + grid->width, preserved_tile_count * sizeof(uint32_t));
 
@@ -962,4 +960,4 @@ void grid_destroy(struct Grid *grid) {
     free(grid->foreground_colors);
 }
 
-extern inline void grid_set_char_i(struct Grid *grid, int32_t i, char character);
+extern inline void grid_set_char_i(struct Grid *grid, int32_t i, uint32_t character);

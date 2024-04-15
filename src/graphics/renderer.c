@@ -97,29 +97,128 @@ static int32_t renderer_get_visible_scrollback_line_count(struct Renderer *rende
     return visible_scrollback_line_count;
 }
 
-static void renderer_draw_character(
-    char character,
+static void renderer_draw_horizontal_line(
     struct SpriteBatch *sprite_batch,
     int32_t x,
+    int32_t offset_x,
     int32_t z,
+    int32_t width,
     float scale,
     float r,
     float g,
     float b
 ) {
+    sprite_batch_add(
+        sprite_batch,
+        (struct Sprite){
+            .x = (x * FONT_GLYPH_WIDTH + offset_x) * scale,
+            .y = (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * 0.5f * scale,
+            .z = z,
+            .width = width * scale,
+            .height = FONT_LINE_WIDTH * scale,
+
+            .texture_x = 0,
+            .texture_width = FONT_GLYPH_WIDTH,
+            .texture_height = FONT_LINE_WIDTH,
+
+            .r = r,
+            .g = g,
+            .b = b,
+        }
+    );
+}
+
+static void renderer_draw_vertical_line(
+    struct SpriteBatch *sprite_batch,
+    int32_t x,
+    int32_t offset_y,
+    int32_t z,
+    int32_t height,
+    float scale,
+    float r,
+    float g,
+    float b
+) {
+    sprite_batch_add(
+        sprite_batch,
+        (struct Sprite){
+            .x = (x * FONT_GLYPH_WIDTH + (FONT_GLYPH_WIDTH - FONT_LINE_WIDTH) * 0.5f) * scale,
+            .y = offset_y * scale,
+            .z = z,
+            .width = FONT_LINE_WIDTH * scale,
+            .height = height * scale,
+
+            .texture_x = 0,
+            .texture_width = FONT_LINE_WIDTH,
+            .texture_height = FONT_GLYPH_HEIGHT,
+
+            .r = r,
+            .g = g,
+            .b = b,
+        }
+    );
+}
+
+static void renderer_draw_character(
+    uint32_t character, struct SpriteBatch *sprite_batch, int32_t x, int32_t z, float scale, float r, float g, float b
+) {
     if (character == ' ') {
         return;
     }
+
+    const int32_t corner_top = (FONT_GLYPH_HEIGHT + FONT_LINE_WIDTH) / 2;
+    const int32_t corner_bottom = (FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) / 2;
+    const int32_t corner_left = (FONT_GLYPH_WIDTH - FONT_LINE_WIDTH) / 2;
+    const int32_t corner_right = (FONT_GLYPH_WIDTH + FONT_LINE_WIDTH) / 2;
+
+    switch (character) {
+        case 0x2500: {
+            // Thin horizontal line:
+            renderer_draw_horizontal_line(sprite_batch, x, 0, z, FONT_GLYPH_WIDTH, scale, r, g, b);
+            return;
+        }
+        case 0x2502: {
+            // Thin vertical line:
+            renderer_draw_vertical_line(sprite_batch, x, 0, z, FONT_GLYPH_HEIGHT, scale, r, g, b);
+            return;
+        }
+        case 0x250C: {
+            // Thin top left corner:
+            renderer_draw_horizontal_line(sprite_batch, x, corner_left, z, corner_right, scale, r, g, b);
+            renderer_draw_vertical_line(sprite_batch, x, 0, z, corner_top, scale, r, g, b);
+            return;
+        }
+        case 0x2510: {
+            // Thin top right corner:
+            renderer_draw_horizontal_line(sprite_batch, x, 0, z, corner_right, scale, r, g, b);
+            renderer_draw_vertical_line(sprite_batch, x, 0, z, corner_top, scale, r, g, b);
+            return;
+        }
+        case 0x2514: {
+            // Thin bottom left corner:
+            renderer_draw_horizontal_line(sprite_batch, x, corner_left, z, corner_right, scale, r, g, b);
+            renderer_draw_vertical_line(sprite_batch, x, corner_bottom, z, corner_top, scale, r, g, b);
+            return;
+        }
+        case 0x2518: {
+            // Thin bottom right corner:
+            renderer_draw_horizontal_line(sprite_batch, x, 0, z, corner_right, scale, r, g, b);
+            renderer_draw_vertical_line(sprite_batch, x, corner_bottom, z, corner_top, scale, r, g, b);
+            return;
+        }
+    }
+
+    uint32_t atlas_x = int32_min(character - 32, FONT_LENGTH);
 
     sprite_batch_add(
         sprite_batch,
         (struct Sprite){
             .x = x * FONT_GLYPH_WIDTH * scale,
-            .z = z * scale,
+            .z = z,
             .width = FONT_GLYPH_WIDTH * scale,
             .height = FONT_GLYPH_HEIGHT * scale,
 
-            .texture_x = (FONT_GLYPH_WIDTH + FONT_GLYPH_PADDING) * (character - 32),
+            .texture_x = (FONT_GLYPH_WIDTH + FONT_GLYPH_PADDING) * atlas_x,
             .texture_width = FONT_GLYPH_WIDTH,
             .texture_height = FONT_GLYPH_HEIGHT,
 
@@ -137,7 +236,7 @@ static void renderer_draw_box(
         sprite_batch,
         (struct Sprite){
             .x = x * FONT_GLYPH_WIDTH * scale,
-            .z = z * scale,
+            .z = z,
             .width = FONT_GLYPH_WIDTH * scale,
             .height = FONT_GLYPH_HEIGHT * scale,
 
@@ -159,7 +258,7 @@ static void renderer_draw_bar(
         sprite_batch,
         (struct Sprite){
             .x = x * FONT_GLYPH_WIDTH * scale,
-            .z = z * scale,
+            .z = z,
             .width = FONT_LINE_WIDTH * scale,
             .height = FONT_GLYPH_HEIGHT * scale,
 
@@ -181,7 +280,7 @@ static void renderer_draw_underline(
         sprite_batch,
         (struct Sprite){
             .x = x * FONT_GLYPH_WIDTH * scale,
-            .z = (z + FONT_GLYPH_HEIGHT - FONT_LINE_WIDTH) * scale,
+            .z = z,
             .width = FONT_GLYPH_WIDTH * scale,
             .height = FONT_LINE_WIDTH * scale,
 
@@ -197,7 +296,7 @@ static void renderer_draw_underline(
 }
 
 static void renderer_draw_tile(
-    char character,
+    uint32_t character,
     struct Color foreground_color,
     struct Color background_color,
     struct SpriteBatch *sprite_batch,
@@ -231,7 +330,7 @@ static void renderer_draw_cursor(
         case GRID_CURSOR_STYLE_BLOCK: {
             renderer_draw_box(sprite_batch, x, z, scale, 1.0f, 1.0f, 1.0f);
 
-            char character = grid->data[x + y * grid->width];
+            uint32_t character = grid->data[x + y * grid->width];
             renderer_draw_character(character, sprite_batch, x, z + 1, scale, 0.0f, 0.0f, 0.0f);
             break;
         }
@@ -287,7 +386,7 @@ static void renderer_draw_scrollback(
         }
 
         for (size_t x = 0; x < grid->width; x++) {
-            char character = ' ';
+            uint32_t character = ' ';
             uint32_t background_hex_color = GRID_COLOR_BACKGROUND_DEFAULT;
             uint32_t foreground_hex_color = GRID_COLOR_FOREGROUND_DEFAULT;
 
@@ -334,7 +433,7 @@ static void renderer_draw_grid(
 
         for (size_t x = 0; x < grid->width; x++) {
             size_t i = x + grid_y * grid->width;
-            char character = grid->data[i];
+            uint32_t character = grid->data[i];
 
             struct Color background_color = color_from_hex(grid->background_colors[i]);
             struct Color foreground_color = color_from_hex(grid->foreground_colors[i]);

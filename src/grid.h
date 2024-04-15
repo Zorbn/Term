@@ -49,7 +49,7 @@ enum GridMouseMode {
 };
 
 struct ScrollbackLine {
-    char *data;
+    uint32_t *data;
     uint32_t *background_colors;
     uint32_t *foreground_colors;
     size_t length;
@@ -59,7 +59,7 @@ typedef struct ScrollbackLine struct_ScrollbackLine;
 LIST_DEFINE(struct_ScrollbackLine)
 
 struct Grid {
-    char *data;
+    uint32_t *data;
     size_t width;
     size_t height;
     size_t size;
@@ -95,7 +95,7 @@ struct Grid {
 struct Grid grid_create(
     size_t width, size_t height, void *callback_context, void (*on_row_changed)(void *context, int32_t y));
 void grid_resize(struct Grid *grid, size_t width, size_t height);
-void grid_set_char(struct Grid *grid, int32_t x, int32_t y, char character);
+void grid_set_char(struct Grid *grid, int32_t x, int32_t y, uint32_t character);
 void grid_set_cursor_style(struct Grid *grid, enum GridCursorStyle cursor_style);
 void grid_scroll_down(struct Grid *grid);
 void grid_cursor_move_to(struct Grid *grid, int32_t x, int32_t y);
@@ -105,7 +105,7 @@ bool grid_parse_escape_sequence(
     struct Grid *grid, struct TextBuffer *text_buffer, struct TitleBuffer *title_buffer, size_t *i, size_t *furthest_i);
 void grid_destroy(struct Grid *grid);
 
-inline void grid_set_char_i(struct Grid *grid, int32_t i, char character) {
+inline void grid_set_char_i(struct Grid *grid, int32_t i, uint32_t character) {
     grid->data[i] = character;
     grid->background_colors[i] = grid->current_background_color;
     grid->foreground_colors[i] = grid->current_foreground_color;

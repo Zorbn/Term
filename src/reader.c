@@ -2,6 +2,51 @@
 
 #include "font.h"
 
+static uint32_t utf8_to_utf32(struct TextBuffer *text_buffer, size_t *i, bool *was_multi_byte) {
+    uint8_t first_char = text_buffer->data[*i];
+
+    if (first_char < 0x80) {
+        *was_multi_byte = false;
+
+        return first_char;
+    } else if (first_char < 0xe0) {
+        char second_char = text_buffer->data[*i + 1];
+
+        *i += 2;
+        *was_multi_byte = true;
+
+        return ((first_char & 0x1f) << 6) | (second_char & 0x3f);
+    } else if (first_char < 0xf0) {
+        char second_char = text_buffer->data[*i + 1];
+        char third_char = text_buffer->data[*i + 2];
+
+        *i += 3;
+        *was_multi_byte = true;
+
+        return ((first_char & 0xf) << 12) | ((second_char & 0x3f) << 6) | (third_char & 0x3f);
+    } else if (first_char < 0xf8) {
+        char second_char = text_buffer->data[*i + 1];
+        char third_char = text_buffer->data[*i + 2];
+        char fourth_char = text_buffer->data[*i + 3];
+
+        *i += 4;
+        *was_multi_byte = true;
+
+        return ((first_char & 0x7) << 18) | ((second_char & 0x3f) << 12) | ((third_char & 0x3f) << 6) |
+               (fourth_char & 0x3f);
+    }
+
+    return first_char;
+}
+
+static void write_char_to_grid(struct Grid *grid, uint32_t character) {
+    if (grid->cursor_x >= grid->width) {
+        grid_cursor_move_to(grid, 0, grid->cursor_y + 1);
+    }
+    grid_set_char(grid, grid->cursor_x, grid->cursor_y, character);
+    grid->cursor_x++;
+}
+
 static DWORD WINAPI read_thread_start(void *start_info) {
     struct ReadThreadData *data = start_info;
 
@@ -27,22 +72,12 @@ static DWORD WINAPI read_thread_start(void *start_info) {
         read_thread_data_lock(data);
 
         for (size_t i = 0; i < text_buffer->length;) {
-            // Skip multi-byte text. Replace it with a box character.
-            if (text_buffer->data[i] & 0x80) {
-                size_t j = 0;
-                while (j < 4 && ((text_buffer->data[i] << j) & 0x80)) {
-                    j++;
-                }
+            bool was_multi_byte = false;
+            uint32_t character = utf8_to_utf32(text_buffer, &i, &was_multi_byte);
 
-                size_t end_i = i + j - 1;
-                if (end_i >= text_buffer->length) {
-                    // The multi-byte utf8 character was split across multiple reads.
-                    text_buffer_keep_from_i(text_buffer, i);
-                    break;
-                }
-
-                i = end_i;
-                text_buffer->data[i] = FONT_LENGTH + 32;
+            if (was_multi_byte) {
+                write_char_to_grid(grid, character);
+                continue;
             }
 
             // Check for escape sequences.
@@ -85,11 +120,7 @@ static DWORD WINAPI read_thread_start(void *start_info) {
                 continue;
             }
 
-            if (grid->cursor_x >= grid->width) {
-                grid_cursor_move_to(grid, 0, grid->cursor_y + 1);
-            }
-            grid_set_char(grid, grid->cursor_x, grid->cursor_y, text_buffer->data[i]);
-            grid->cursor_x++;
+            write_char_to_grid(grid, text_buffer->data[i]);
 
             i++;
         }
